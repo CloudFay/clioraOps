@@ -21,7 +21,7 @@ Transform GitHub Copilot CLI into an interactive, safety-conscious DevOps mentor
 ### Installation
 ```bash
 # Clone the repository
-git clone https://github.com/your-repo/clioraOps.git
+git clone https://github.com/CloudFay/clioraOps.git
 cd clioraOps
 
 # Install in editable mode
