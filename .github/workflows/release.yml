@@ -1,0 +1,105 @@
+name: Release Management
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.2.0)'
+        required: true
+        type: string
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'minor'
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Configure git
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Update version in setup.py
+      run: |
+        python - << 'EOF'
+        import re
+        
+        version = "${{ github.event.inputs.version }}"
+        
+        with open("setup.py", "r") as f:
+            content = f.read()
+        
+        content = re.sub(r'version="[^"]*"', f'version="{version}"', content)
+        
+        with open("setup.py", "w") as f:
+            f.write(content)
+        
+        print(f"Updated version to {version}")
+        EOF
+    
+    - name: Create CHANGELOG entry
+      run: |
+        python - << 'EOF'
+        from datetime import datetime
+        
+        version = "${{ github.event.inputs.version }}"
+        release_type = "${{ github.event.inputs.release_type }}".capitalize()
+        today = datetime.now().strftime("%Y-%m-%d")
+        
+        changelog_entry = f"""## [{version}] - {today}
+
+### {release_type}
+- Release version {version}
+
+"""
+        
+        try:
+            with open("CHANGELOG.md", "r") as f:
+                existing = f.read()
+        except FileNotFoundError:
+            existing = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n"
+        
+        new_content = "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n" + changelog_entry + "\n".join(existing.split("\n")[3:])
+        
+        with open("CHANGELOG.md", "w") as f:
+            f.write(new_content)
+        
+        print(f"Created CHANGELOG entry for {version}")
+        EOF
+    
+    - name: Commit changes
+      run: |
+        git add setup.py CHANGELOG.md
+        git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
+    
+    - name: Create git tag
+      run: |
+        git tag -a "v${{ github.event.inputs.version }}" -m "Release version ${{ github.event.inputs.version }}"
+        git push origin main --follow-tags
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "v${{ github.event.inputs.version }}"
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
