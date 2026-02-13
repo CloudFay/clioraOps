@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="clioraops",  
-    version="0.1.0",
+    version="0.2.0",
     author="Faith Omobude",
     author_email="fayosarumwense@gmail.com",
     description="DevOps learning and architecture companion CLI",

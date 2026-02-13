@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [0.2.0] - 2026-02-13
+
+### Added
+- ✅ **GitHub Copilot CLI Integration**: Full conversational mode support for natural language interactions
+- ✅ **Standalone Copilot Support**: Added support for npm-installed GitHub Copilot CLI (`npm install -g @github/copilot`)
+- ✅ **Environment Setup**: Automatic npm-global/bin PATH configuration for subprocess calls
+- ✅ **Enhanced Prompt Handling**: Improved multi-line prompt normalization for CLI compatibility
+
+### Fixed
+- 🔧 Fixed Copilot availability detection to support both `gh copilot` extension and standalone CLI
+- 🔧 Resolved PATH inheritance issues in Python subprocess calls
+- 🔧 Fixed prompt formatting to prevent command format errors with newlines
+
+### Improved
+- 📈 Better error messages for setup instructions
+- 📈 More robust command detection for different Copilot CLI installations
+- 📈 Conversational mode now properly handles context-rich prompts
+
 ## [0.1.0] - 2026-02-12
 
 ### Initial Release

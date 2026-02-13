@@ -7,6 +7,7 @@ that are mode-aware (beginner vs architect) and context-rich.
 
 import subprocess
 import json
+import os
 from typing import Optional, Dict, List
 from enum import Enum
 from dataclasses import dataclass
@@ -34,54 +35,56 @@ class GitHubCopilotIntegration:
     def __init__(self, mode=None):
         """Initialize Copilot integration."""
         self.mode = mode
+        self._setup_environment()
         self._check_availability()
+        self._copilot_command = None  # Will be set to either ["gh", "copilot"] or ["copilot"]
+    
+    def _setup_environment(self) -> None:
+        """Ensure npm global bin is in PATH for subprocess calls."""
+        npm_path = os.path.expanduser("~/.npm-global/bin")
+        current_path = os.environ.get("PATH", "")
+        if npm_path not in current_path:
+            os.environ["PATH"] = f"{npm_path}:{current_path}"
     
     def _check_availability(self) -> bool:
         """Check if GitHub CLI and Copilot extension are available."""
         try:
-            # Check if gh is installed
+            # Try to use gh copilot first
             result = subprocess.run(
-                ["gh", "--version"],
+                ["gh", "copilot", "--version"],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             
-            if result.returncode != 0:
-                raise CopilotError("GitHub CLI (gh) not found. Install from https://cli.github.com/")
+            if result.returncode == 0:
+                self._copilot_command = ["gh", "copilot"]
+                return True
             
-            # Check if copilot extension is installed (as extension or built-in)
+            # Try standalone copilot command (npm-installed)
             result = subprocess.run(
-                ["gh", "extension", "list"],
+                ["copilot", "--version"],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             
-            has_copilot_extension = "copilot" in result.stdout.lower()
+            if result.returncode == 0:
+                self._copilot_command = ["copilot"]
+                return True
             
-            # Also try running copilot directly to see if it's available as built-in
-            if not has_copilot_extension:
-                result = subprocess.run(
-                    ["gh", "copilot", "--version"],
-                    capture_output=True,
-                    text=True,
-                    timeout=5
-                )
-                has_copilot_extension = result.returncode == 0
-            
-            if not has_copilot_extension:
-                raise CopilotError(
-                    "GitHub Copilot extension not installed. "
-                    "Run: gh extension install github/gh-copilot"
-                )
-            
-            return True
+            # Neither works
+            raise CopilotError(
+                "GitHub Copilot CLI not installed. "
+                "Run: npm install -g @github/copilot or gh extension install github/gh-copilot"
+            )
             
         except FileNotFoundError:
-            raise CopilotError("GitHub CLI (gh) not found in PATH")
+            raise CopilotError("GitHub CLI (gh) or Copilot not found in PATH")
         except subprocess.TimeoutExpired:
-            raise CopilotError("GitHub CLI check timed out")
+            raise CopilotError("Copilot availability check timed out")
+        except CopilotError:
+            raise
         except Exception as e:
             raise CopilotError(f"Error checking Copilot availability: {e}")
     
@@ -102,9 +105,10 @@ class GitHubCopilotIntegration:
         prompt = self._build_prompt(query, current_mode)
         
         try:
-            # Call gh copilot with prompt option
+            # Call copilot with prompt option
+            cmd = self._copilot_command + ["-p", prompt] if self._copilot_command else ["gh", "copilot", "-p", prompt]
             result = subprocess.run(
-                ["gh", "copilot", "-p", prompt],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -159,8 +163,9 @@ class GitHubCopilotIntegration:
             enhanced_desc = description
         
         try:
+            cmd = self._copilot_command + ["suggest", enhanced_desc] if self._copilot_command else ["gh", "copilot", "suggest", enhanced_desc]
             result = subprocess.run(
-                ["gh", "copilot", "suggest", enhanced_desc],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30
@@ -203,10 +208,14 @@ class GitHubCopilotIntegration:
         # Build enhanced question with context
         enhanced_question = self._build_contextual_question(question, current_mode, context)
         
+        # Normalize whitespace: convert multiple spaces/newlines to single space
+        normalized_question = " ".join(enhanced_question.split())
+        
         try:
-            # Use explain as generic Q&A
+            # Use explain as generic Q&A with -i for interactive mode
+            cmd = self._copilot_command + ["-i", normalized_question] if self._copilot_command else ["gh", "copilot", "-i", normalized_question]
             result = subprocess.run(
-                ["gh", "copilot", "explain", enhanced_question],
+                cmd,
                 capture_output=True,
                 text=True,
                 timeout=30
