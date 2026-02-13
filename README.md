@@ -11,12 +11,17 @@ Transform GitHub Copilot CLI into an interactive, safety-conscious DevOps mentor
 
 ### Prerequisites
 1. **Python 3.10+**
-2. **GitHub CLI (`gh`)** installed: [Installation Guide](https://cli.github.com/)
-3. **GitHub Copilot Extension**:
-   ```bash
-   gh extension install github/gh-copilot
-   gh auth login
-   ```
+2. **Node.js & npm** (for GitHub Copilot CLI)
+3. **GitHub Copilot CLI** (choose one option):
+   - **Option A: npm (Recommended)** - Works on all platforms
+     ```bash
+     npm install -g @github/copilot
+     ```
+   - **Option B: gh extension** - Requires GitHub CLI
+     ```bash
+     gh extension install github/gh-copilot
+     gh auth login
+     ```
 
 ### Installation
 ```bash
@@ -28,13 +33,32 @@ cd clioraOps
 pip install -e .
 ```
 
+### Verify Installation
+```bash
+# Check if copilot CLI is accessible
+copilot --version
+
+# Test clioraops
+clioraops start
+```
+
 ### Running ClioraOps
 ```bash
 # Start an interactive session
 clioraops start
+
+# You'll see:
+# 🚀 ClioraOps Session Started (beginner mode)
+# 💬 Conversational mode: ENABLED
+# Type 'exit' to quit
 ```
 
 ## ✨ Features
+
+- **💬 Conversational Mode (NEW in v0.2.0)**: 
+  - Ask questions naturally in plain English
+  - Context-aware responses tailored to your learning level
+  - Seamless integration with GitHub Copilot CLI
 
 - **🎓 Dual Modes**: 
   - **Beginner**: Analogies, simple explanations, and safety warnings.
@@ -59,6 +83,17 @@ clioraops start
 
 Once inside the session (`clioraops start`), try these:
 
+### Conversational Mode (Ask Anything)
+Simply type your question or statement naturally:
+
+```bash
+🌱 beginner > What's the difference between Docker and Kubernetes?
+🌱 beginner > How do I get started with CI/CD?
+🌱 beginner > Explain what containerization means
+```
+
+### Command-Based Mode
+
 | Command | Description | Example |
 |---------|-------------|---------|
 | `try <cmd>` | Check if a command is safe to run | `try docker run -it ubuntu` |
@@ -68,6 +103,7 @@ Once inside the session (`clioraops start`), try these:
 | `debug <error>` | Analyze an error message | `debug connection refused` |
 | `review <file>` | Scan a script for issues | `review deploy.sh` |
 | `learn <topic>` | Start a learning session | `learn ci/cd` |
+| `switch to <mode>` | Change learning mode | `switch to architect` |
 
 ## 📚 Examples & Learning Paths
 
@@ -121,14 +157,16 @@ mypy clioraOps_cli --ignore-missing-imports
 ### Version Management
 ```bash
 # Bump version (major, minor, or patch)
-python scripts/bump_version.py patch
+python scripts/bump_version.py minor
 
 # Create release (manual git process)
-git tag -a v0.2.0 -m "Release 0.2.0"
+git add setup.py CHANGELOG.md clioraOps_cli/version.py
+git commit -m "chore: bump to v0.X.X"
+git tag -a v0.X.X -m "Release v0.X.X"
 git push origin main --follow-tags
 ```
 
-See [PUBLISHING.md](PUBLISHING.md) for release procedures.
+See [PUBLISHING.md](PUBLISHING.md) for detailed release procedures.
 
 ## 📄 License
 
