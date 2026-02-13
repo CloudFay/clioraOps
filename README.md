@@ -29,6 +29,10 @@ Transform GitHub Copilot CLI into an interactive, safety-conscious DevOps mentor
 git clone https://github.com/CloudFay/clioraOps.git
 cd clioraOps
 
+# Create virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
 # Install in editable mode
 pip install -e .
 ```

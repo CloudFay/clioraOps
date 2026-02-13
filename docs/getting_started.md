@@ -32,6 +32,17 @@ gh extension install github/gh-copilot
 gh auth login
 ```
 
+## Best Practices
+
+### Virtual Environments
+It's **highly recommended** to use Python virtual environments to isolate ClioraOps dependencies from your system Python:
+
+**Benefits:**
+- ✅ Avoid version conflicts with other Python projects
+- ✅ Easy to manage dependencies
+- ✅ Can install multiple versions of packages in different projects
+- ✅ Clean uninstall (just delete the venv folder)
+
 ## Installation
 
 ### 1. Clone the Repository
@@ -40,8 +51,25 @@ git clone https://github.com/CloudFay/clioraOps.git
 cd clioraOps
 ```
 
-### 2. Install ClioraOps
+### 2. Create Virtual Environment (Recommended)
 ```bash
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it
+# On Linux/macOS:
+source venv/bin/activate
+
+# On Windows:
+# venv\Scripts\activate
+```
+
+You should see `(venv)` prefix in your terminal when activated.
+
+### 3. Install ClioraOps
+```bash
+# Make sure you're in the virtual environment (see (venv) prompt)
+
 # Using pip (editable mode for development)
 pip install -e .
 
@@ -49,7 +77,7 @@ pip install -e .
 pip install .
 ```
 
-### 3. Verify Installation
+### 4. Verify Installation
 ```bash
 # Check Python version
 python3 --version  # Should be 3.10+
@@ -62,6 +90,11 @@ copilot --version
 
 # Test ClioraOps
 clioraops --version
+```
+
+### Deactivating Virtual Environment (when done)
+```bash
+deactivate
 ```
 
 ## Running ClioraOps
