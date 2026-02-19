@@ -1,1 +1,3 @@
-"""Utility functions."""
+"""
+ClioraOps utils - Supporting utilities and helper functions.
+"""

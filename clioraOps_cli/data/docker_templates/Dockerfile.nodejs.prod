@@ -1,0 +1,45 @@
+# Dockerfile - Node.js Application (Production)
+# Multi-stage build with npm caching
+
+FROM node:18-alpine as builder
+
+WORKDIR /build
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+# Copy application
+COPY . .
+RUN npm run build || true
+
+
+FROM node:18-alpine
+
+LABEL maintainer="DevOps Team"
+LABEL description="Production Node.js application"
+
+ENV NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=512"
+
+RUN apk add --no-cache \
+    curl \
+    ca-certificates
+
+WORKDIR /app
+
+# Copy from builder
+COPY --from=builder /build/node_modules ./node_modules
+COPY --from=builder /build/dist ./dist
+COPY --from=builder /build/package*.json ./
+
+# Create non-root user
+RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]

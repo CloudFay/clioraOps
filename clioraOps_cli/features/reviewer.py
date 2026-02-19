@@ -306,6 +306,206 @@ class CodeReviewer:
             safe_alternative="# Python: use json.loads() or ast.literal_eval()\nimport json\ndata = json.loads(string)",
             learning_note="Eval is a code smell. If you think you need eval, there's usually a safer alternative."
         ),
+        CommandPattern(
+            pattern=r'rm\s+-rf\s+\$[A-Z_]+',
+            risk_level=RiskLevel.DANGEROUS,
+            description="Recursive delete using potentially empty variable",
+            beginner_explanation=(
+                "⚠️  Caution! You're deleting files using a variable like $FOLDER.\n\n"
+                "If that variable happens to be empty, you might accidentally "
+                "delete EVERYTHING in your current directory or even your whole computer! 😱\n\n"
+                "💡 Safe way to do this:\n"
+                "   - Check it's not empty: [ -n \"$VAR\" ] && rm -rf \"$VAR\"\n"
+                "   - Use a default: rm -rf \"${VAR:-/tmp/safe_to_delete}\"\n"
+                "   - Always quote your variables: \"$VAR\""
+            ),
+            architect_explanation=(
+                "Risk: Unbounded recursive deletion due to uninitialized or empty variables.\n"
+                "Impact: Accidental data loss across broad filesystem scopes.\n"
+                "Mitigation:\n"
+                "  - Use shell parameter expansion with defaults: ${VAR:?error}\n"
+                "  - Explicitly check for non-empty strings before destructive operations\n"
+                "  - Always quote variables to prevent globbing and word splitting"
+            ),
+            safe_alternative="rm -rf \"${TARGET_DIR:?target directory not set}\"",
+            learning_note="Empty variables in 'rm -rf' are a common cause of accidental system wipes."
+        ),
+        
+        CommandPattern(
+            pattern=r'curl\s+.*\s*\|\s*(bash|sh|zsh)',
+            risk_level=RiskLevel.DANGEROUS,
+            description="Piping remote script directly to shell",
+            beginner_explanation=(
+                "🚩 Danger! You're running a script from the internet without looking at it first!\n\n"
+                "This is like eating a random pill you found on the sidewalk. You don't "
+                "know what's inside or what it will do to you! 💊❌\n\n"
+                "Why this is bad:\n"
+                "  - The script could have changed since the last time you used it\n"
+                "  - A hacker could have replaced the script on the server\n"
+                "  - It might contain 'rm -rf /' or steal your passwords\n\n"
+                "💡 Safe way:\n"
+                "   1. Download: curl -O https://example.com/install.sh\n"
+                "   2. Inspect: nano install.sh\n"
+                "   3. Run: bash install.sh"
+            ),
+            architect_explanation=(
+                "Security vulnerability: Remote Code Execution (RCE) via untrusted source.\n"
+                "Attack vectors: Man-in-the-middle (MITM), compromised edge servers, supply chain attacks.\n"
+                "Mitigation:\n"
+                "  - Verify script integrity with checksums (SHA256)\n"
+                "  - Use signed packages from official repositories\n"
+                "  - Audit script contents before execution in a sandbox"
+            ),
+            safe_alternative="curl -s https://example.com/install.sh > install.sh && less install.sh",
+            learning_note="Never trust the internet with your shell. Audit before execution."
+        ),
+        
+        CommandPattern(
+            pattern=r'(api_key|secret|password|token)\s*=\s*[\'"][A-Za-z0-9/\+=\-]{8,}[\'"]',
+            risk_level=RiskLevel.DANGEROUS,
+            description="Hardcoded secret or API key detected",
+            beginner_explanation=(
+                "🔐 STOP! It looks like you're putting a secret key directly in your code!\n\n"
+                "If you share this code or push it to GitHub, anyone can steal your "
+                "key and use your account (and maybe spend your money!). 💸💀\n\n"
+                "💡 Safe way to handle secrets:\n"
+                "   1. Use environment variables: os.environ.get('MY_API_KEY')\n"
+                "   2. Use a .env file (and add it to .gitignore)\n"
+                "   3. Use a Secret Manager (like HashiCorp Vault or AWS Secrets Manager)"
+            ),
+            architect_explanation=(
+                "Security risk: Hardcoded credentials in source code.\n"
+                "Impact: Credential leakage, unauthorized access, potential system compromise.\n"
+                "Best practices:\n"
+                "  - Implement secret scanning in CI/CD (e.g., gitleaks, trufflehog)\n"
+                "  - Inject secrets via environment variables or volume mounts\n"
+                "  - Use dynamic secrets with short TTLs where possible\n"
+                "  - Rotate compromised credentials immediately"
+            ),
+            safe_alternative="export MY_SECRET=\"actual_value\" # Then use os.getenv(\"MY_SECRET\")",
+            learning_note="Secrets should live in your environment, not in your git history."
+        ),
+        
+        CommandPattern(
+            pattern=r'\brm\s+-rf\s+\$\w+|\brm\s+-rf\s+\$\{\w+\}',
+            risk_level=RiskLevel.CRITICAL,
+            description="Recursive delete with unvalidated variable",
+            beginner_explanation=(
+                "🚨 DANGEROUS! You're using rm -rf with a variable!\n\n"
+                "If that variable is empty or contains unexpected text, you could "
+                "accidentally delete important files.\n\n"
+                "Example of what could go wrong:\n"
+                "   MY_DIR=         # Oops, empty!\n"
+                "   rm -rf $MY_DIR  # Deletes everything in current directory!\n\n"
+                "💡 Safer approach:\n"
+                "   - Always validate variables before using them with rm\n"
+                "   - Use specific paths instead of variables\n"
+                "   - Double-check what the variable contains first"
+            ),
+            architect_explanation=(
+                "CRITICAL: Recursive deletion with variable expansion risk.\n"
+                "Impact: Unintended data loss due to variable misconfiguration.\n"
+                "Prevention: Always validate and quote variables, use set -u to catch undefined variables.\n"
+                "Best practice: \n"
+                "  - Use explicit paths\n"
+                "  - Validate variables: [[ -n \"$VAR\" ]] before use\n"
+                "  - Consider using 'trash' or backup before deletion\n"
+                "  - Use defensive scripting: set -euo pipefail"
+            ),
+            safe_alternative="[[ -n \"$MY_DIR\" ]] && rm -rf \"$MY_DIR\" || echo \"Variable is empty!\"",
+            learning_note="Always validate variables, especially with dangerous commands like rm -rf"
+        ),
+        
+        CommandPattern(
+            pattern=r'\b(eval|exec)\s+.*\$\w+|\b(eval|exec)\s+.*`.*`|\b(eval|exec)\s+.*\$\(',
+            risk_level=RiskLevel.CRITICAL,
+            description="Code execution with dynamic/untrusted input",
+            beginner_explanation=(
+                "⚠️  WARNING: eval/exec with dynamic code!\n\n"
+                "eval and exec are like 'magic wands' that turn text into commands.\n"
+                "If you use them with variables or user input, attackers can inject "
+                "malicious code.\n\n"
+                "Think of it like:\n"
+                "   User enters: rm -rf /\n"
+                "   Your code: eval \"command_\" + user_input\n"
+                "   Result: You accidentally ran the attacker's command!\n\n"
+                "💡 Almost always there's a safer way:\n"
+                "   - Parse the input properly instead of eval-ing it\n"
+                "   - Use proper APIs (subprocess.run, json.loads, etc.)"
+            ),
+            architect_explanation=(
+                "CRITICAL: Dynamic code execution with user-controlled input.\n"
+                "Impact: Arbitrary code execution, privilege escalation, data breach.\n"
+                "Prevention: Never use eval/exec with untrusted input.\n"
+                "Alternatives:\n"
+                "  - Use subprocess.run() with argument list, not shell=True\n"
+                "  - Parse structured data (JSON, YAML) with dedicated libraries\n"
+                "  - Use Abstract Syntax Trees (AST) for safe evaluation"
+            ),
+            safe_alternative="subprocess.run([command, arg1, arg2], check=True)  # Safer than eval",
+            learning_note="eval/exec are code smell - almost always there's a safer approach"
+        ),
+        
+        CommandPattern(
+            pattern=r'(curl|wget)\s+.*\|\s*bash|(curl|wget)\s+.*\|\s*sh',
+            risk_level=RiskLevel.CRITICAL,
+            description="Executing remote script without verification",
+            beginner_explanation=(
+                "🛑 CRITICAL: Running an untrusted script from the internet!\n\n"
+                "When you do: curl https://example.com/script.sh | bash\n"
+                "You're saying: 'Download and immediately run whatever you want on my computer'\n\n"
+                "What could go wrong:\n"
+                "   - The website gets hacked → malicious script injected\n"
+                "   - Network attack intercepts your download\n"
+                "   - You mistyped the URL and hit a malicious site\n\n"
+                "💡 Safer way:\n"
+                "   1. Download the script: curl -o script.sh https://example.com/script.sh\n"
+                "   2. Review it: cat script.sh  (look for suspicious commands)\n"
+                "   3. Run if it's safe: bash script.sh"
+            ),
+            architect_explanation=(
+                "CRITICAL: Arbitrary code execution from untrusted remote source.\n"
+                "Impact: Complete system compromise, malware installation.\n"
+                "Prevention:\n"
+                "  - Download and verify before execution (check checksums)\n"
+                "  - Use GPG signatures if available\n"
+                "  - Whitelist sources and versions\n"
+                "  - Use configuration management tools (Ansible, Puppet)\n"
+                "  - Implement supply chain security controls"
+            ),
+            safe_alternative="curl -o script.sh https://example.com/script.sh && bash script.sh",
+            learning_note="Always download and review before piping to shell"
+        ),
+        
+        CommandPattern(
+            pattern=r'\bsudo\s+(?!-[lnSHPEi])|\bsudo\s+-s\b',
+            risk_level=RiskLevel.DANGEROUS,
+            description="Sudo without specific command (interactive shell)",
+            beginner_explanation=(
+                "⚠️  WARNING: sudo without specifying a command!\n\n"
+                "When you use 'sudo' alone or 'sudo -s', you get a full shell with root powers.\n"
+                "This is dangerous because:\n"
+                "   - Easy to accidentally run the wrong command as root\n"
+                "   - Hard to audit what you actually did\n"
+                "   - Scripts shouldn't need interactive shells\n\n"
+                "💡 Better practice:\n"
+                "   - Always specify the exact command: sudo systemctl restart nginx\n"
+                "   - This way only that command runs as root\n"
+                "   - Easier to understand what's happening"
+            ),
+            architect_explanation=(
+                "Risk: Unrestricted root shell access.\n"
+                "Impact: Increased attack surface, audit trail loss.\n"
+                "Best practice:\n"
+                "  - Always specify the exact command to run as root\n"
+                "  - Use sudo with full paths to prevent command injection\n"
+                "  - Configure sudoers for specific commands only\n"
+                "  - Enable logging of all sudo commands\n"
+                "  - Consider using 'sudo su - user' instead of 'sudo -s'"
+            ),
+            safe_alternative="sudo systemctl restart service  # Specify the exact command",
+            learning_note="Principle of least privilege: run only what's needed as root"
+        ),
     ]
     
     def __init__(self, mode=None):

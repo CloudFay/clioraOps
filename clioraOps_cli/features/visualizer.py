@@ -9,466 +9,14 @@ Generates visual architecture diagrams in multiple formats:
 Provides educational explanations for each architecture pattern.
 """
 
-from enum import Enum
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 import subprocess
 import sys
 
-
-class DiagramFormat(Enum):
-    """Output format for diagrams."""
-    ASCII = "ascii"
-    PNG = "png"
-    SVG = "svg"
-    MERMAID = "mermaid"
-
-
-class ArchitecturePattern(Enum):
-    """Common architecture patterns."""
-    MICROSERVICES = "microservices"
-    MONOLITH = "monolith"
-    SERVERLESS = "serverless"
-    EVENT_DRIVEN = "event_driven"
-    LAYERED = "layered"
-    CICD_PIPELINE = "cicd_pipeline"
-    KUBERNETES = "kubernetes"
-    THREE_TIER = "three_tier"
-    LAMBDA = "lambda_architecture"
-
-
-@dataclass
-class DiagramResult:
-    """Result of diagram generation."""
-    success: bool
-    format: DiagramFormat
-    filepath: Optional[str] = None
-    ascii_output: Optional[str] = None
-    error: Optional[str] = None
-    explanation: str = ""
-
-
-class ASCIIArtGenerator:
-    """Generates ASCII art diagrams for CLI display."""
-    
-    @staticmethod
-    def microservices() -> str:
-        """Generate microservices architecture ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                    MICROSERVICES ARCHITECTURE                     ║
-╚══════════════════════════════════════════════════════════════════╝
-
-                        ┌─────────────┐
-                        │   Users     │
-                        │  (Web/App)  │
-                        └──────┬──────┘
-                               │
-                   ┌───────────▼───────────┐
-                   │    Load Balancer      │
-                   │      (nginx)          │
-                   └───────────┬───────────┘
-                               │
-                   ┌───────────▼───────────┐
-                   │     API Gateway       │
-                   │   (Authentication)    │
-                   └───────────┬───────────┘
-                               │
-        ┌──────────────────────┼──────────────────────┐
-        │                      │                      │
-   ┌────▼─────┐         ┌─────▼────┐          ┌─────▼────┐
-   │  Auth    │         │  User    │          │  Order   │
-   │ Service  │         │ Service  │          │ Service  │
-   │  :3001   │         │  :3002   │          │  :3003   │
-   └────┬─────┘         └─────┬────┘          └─────┬────┘
-        │                     │                      │
-        │              ┌──────▼──────┐               │
-        │              │   Message   │               │
-        └─────────────▶│    Queue    │◀──────────────┘
-                       │  (RabbitMQ) │
-                       └──────┬──────┘
-                              │
-                   ┌──────────▼──────────┐
-                   │    Notification     │
-                   │      Service        │
-                   │       :3004         │
-                   └──────────┬──────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        │                     │                     │
-   ┌────▼─────┐         ┌────▼─────┐         ┌────▼─────┐
-   │   Auth   │         │   User   │         │  Order   │
-   │    DB    │         │    DB    │         │    DB    │
-   │(Postgres)│         │ (MongoDB)│         │(Postgres)│
-   └──────────┘         └──────────┘         └──────────┘
-
-Key Benefits:
-✅ Independent deployment
-✅ Technology diversity
-✅ Fault isolation
-✅ Scalability per service
-
-Challenges:
-⚠️  Distributed system complexity
-⚠️  Network latency
-⚠️  Data consistency
-⚠️  Testing complexity
-"""
-
-    @staticmethod
-    def cicd_pipeline() -> str:
-        """Generate CI/CD pipeline ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                       CI/CD PIPELINE                              ║
-╚══════════════════════════════════════════════════════════════════╝
-
-Developer
-    │
-    │ git push
-    ▼
-┌─────────────────┐
-│  Source Code    │
-│   Repository    │
-│     (GitHub)    │
-└────────┬────────┘
-         │ webhook triggers
-         │
-         ▼
-┌─────────────────┐      ┌──────────────────┐
-│   CI Server     │──────▶│  Build & Test    │
-│   (Jenkins/     │      │  - Compile        │
-│    CircleCI)    │      │  - Unit Tests     │
-└────────┬────────┘      │  - Lint           │
-         │               └──────────────────┘
-         │ success
-         ▼
-┌─────────────────┐
-│  Build Docker   │
-│     Image       │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Push to        │
-│  Container      │
-│  Registry       │
-│  (Docker Hub)   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐      ┌──────────────────┐
-│  Deploy to      │      │  Run Integration │
-│  Staging        │─────▶│      Tests       │
-└────────┬────────┘      └──────────────────┘
-         │                        │
-         │ manual approval        │ pass
-         ▼                        ▼
-┌─────────────────┐      ┌──────────────────┐
-│  Deploy to      │      │  Health Check    │
-│  Production     │─────▶│  & Monitoring    │
-│  (Blue/Green)   │      │  (Prometheus)    │
-└─────────────────┘      └──────────────────┘
-
-Pipeline Stages:
-1️⃣  Source → Trigger build on commit
-2️⃣  Build  → Compile & run unit tests
-3️⃣  Test   → Integration & E2E tests
-4️⃣  Deploy → Staging environment
-5️⃣  Verify → Manual/automated approval
-6️⃣  Release→ Production deployment
-7️⃣  Monitor→ Health checks & rollback if needed
-"""
-
-    @staticmethod
-    def kubernetes_cluster() -> str:
-        """Generate Kubernetes cluster ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                    KUBERNETES CLUSTER                             ║
-╚══════════════════════════════════════════════════════════════════╝
-
-                        ┌─────────────────┐
-                        │  kubectl/API    │
-                        │    Requests     │
-                        └────────┬────────┘
-                                 │
-                    ┌────────────▼────────────┐
-                    │    CONTROL PLANE        │
-                    │   (Master Node)         │
-                    ├─────────────────────────┤
-                    │  • API Server           │
-                    │  • Scheduler            │
-                    │  • Controller Manager   │
-                    │  • etcd (state store)   │
-                    └────────────┬────────────┘
-                                 │
-        ┌────────────────────────┼────────────────────────┐
-        │                        │                        │
-┌───────▼────────┐      ┌───────▼────────┐      ┌───────▼────────┐
-│  WORKER NODE 1 │      │  WORKER NODE 2 │      │  WORKER NODE 3 │
-├────────────────┤      ├────────────────┤      ├────────────────┤
-│ ┌────────────┐ │      │ ┌────────────┐ │      │ ┌────────────┐ │
-│ │   kubelet  │ │      │ │   kubelet  │ │      │ │   kubelet  │ │
-│ └────────────┘ │      │ └────────────┘ │      │ └────────────┘ │
-│                │      │                │      │                │
-│ ┌────────────┐ │      │ ┌────────────┐ │      │ ┌────────────┐ │
-│ │ POD: web   │ │      │ │ POD: web   │ │      │ │ POD: api   │ │
-│ │ ┌────────┐ │ │      │ │ ┌────────┐ │ │      │ │ ┌────────┐ │ │
-│ │ │Container│││      │ │ │Container│││      │ │ │Container│││
-│ │ │ nginx  │ │ │      │ │ │ nginx  │ │ │      │ │ │ node.js│ │ │
-│ │ └────────┘ │ │      │ │ └────────┘ │ │      │ │ └────────┘ │ │
-│ └────────────┘ │      │ └────────────┘ │      │ └────────────┘ │
-│                │      │                │      │                │
-│ ┌────────────┐ │      │ ┌────────────┐ │      │ ┌────────────┐ │
-│ │ POD: cache │ │      │ │ POD: worker│ │      │ │ POD: db    │ │
-│ │ ┌────────┐ │ │      │ │ ┌────────┐ │ │      │ │ ┌────────┐ │ │
-│ │ │ redis  │ │ │      │ │ │ python │ │ │      │ │ │postgres│ │ │
-│ │ └────────┘ │ │      │ │ └────────┘ │ │      │ │ └────────┘ │ │
-│ └────────────┘ │      │ └────────────┘ │      │ └────────────┘ │
-└────────────────┘      └────────────────┘      └────────────────┘
-
-Services (LoadBalancers):
-  web-service   → Distributes traffic to web pods
-  api-service   → Routes to API pods
-  cache-service → Internal Redis access
-
-Kubernetes Concepts:
-🎯 Pod       = Smallest deployable unit (1+ containers)
-🔄 ReplicaSet= Ensures N pods are running
-📦 Deployment= Manages ReplicaSets (rolling updates)
-🌐 Service   = Stable network endpoint for pods
-💾 Volume    = Persistent storage
-"""
-
-    @staticmethod
-    def three_tier() -> str:
-        """Generate 3-tier architecture ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                    THREE-TIER ARCHITECTURE                        ║
-╚══════════════════════════════════════════════════════════════════╝
-
-┌──────────────────────────────────────────────────────────────────┐
-│                      PRESENTATION TIER                            │
-│                        (Frontend)                                 │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐          │
-│  │   React     │    │   Angular   │    │  Mobile App │          │
-│  │     SPA     │    │     SPA     │    │   (iOS/And) │          │
-│  └──────┬──────┘    └──────┬──────┘    └──────┬──────┘          │
-│         │                  │                   │                 │
-└─────────┼──────────────────┼───────────────────┼─────────────────┘
-          │                  │                   │
-          └──────────────────┼───────────────────┘
-                             │
-                       HTTPS/REST API
-                             │
-┌────────────────────────────▼─────────────────────────────────────┐
-│                       APPLICATION TIER                            │
-│                      (Business Logic)                             │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────┐         │
-│  │          Load Balancer (nginx/HAProxy)              │         │
-│  └────────────────────┬────────────────────────────────┘         │
-│                       │                                           │
-│       ┌───────────────┼───────────────┐                          │
-│       │               │               │                          │
-│  ┌────▼─────┐    ┌────▼─────┐   ┌────▼─────┐                    │
-│  │ App      │    │ App      │   │ App      │                    │
-│  │ Server 1 │    │ Server 2 │   │ Server 3 │                    │
-│  │ (Node.js)│    │ (Node.js)│   │ (Node.js)│                    │
-│  └────┬─────┘    └────┬─────┘   └────┬─────┘                    │
-│       │               │               │                          │
-│       └───────────────┼───────────────┘                          │
-│                       │                                           │
-└───────────────────────┼───────────────────────────────────────────┘
-                        │
-                   SQL Queries
-                        │
-┌───────────────────────▼───────────────────────────────────────────┐
-│                         DATA TIER                                 │
-│                       (Persistence)                               │
-├──────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────┐         │
-│  │         Database Cluster (Primary/Replica)          │         │
-│  └────────────────────┬────────────────────────────────┘         │
-│                       │                                           │
-│       ┌───────────────┼───────────────┐                          │
-│       │               │               │                          │
-│  ┌────▼─────┐    ┌────▼─────┐   ┌────▼─────┐                    │
-│  │ Primary  │    │ Replica  │   │ Replica  │                    │
-│  │   DB     │───▶│   DB 1   │   │   DB 2   │                    │
-│  │(Postgres)│    │(Read only)   │(Read only)                    │
-│  └──────────┘    └──────────┘   └──────────┘                    │
-│       │                                                           │
-│  ┌────▼──────────────────────────────────────────┐               │
-│  │        Backup & Archive Storage               │               │
-│  │              (Daily Backups)                  │               │
-│  └───────────────────────────────────────────────┘               │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-
-Separation of Concerns:
-1️⃣  Presentation  = User interface (HTML/CSS/JS)
-2️⃣  Application   = Business logic (API, processing)
-3️⃣  Data          = Storage (Database, files)
-
-Benefits:
-✅ Scalability (scale each tier independently)
-✅ Maintainability (clear boundaries)
-✅ Security (network segmentation)
-✅ Flexibility (swap components per tier)
-"""
-
-    @staticmethod
-    def serverless() -> str:
-        """Generate serverless architecture ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                    SERVERLESS ARCHITECTURE                        ║
-╚══════════════════════════════════════════════════════════════════╝
-
-                        ┌─────────────┐
-                        │   Client    │
-                        │ (Web/Mobile)│
-                        └──────┬──────┘
-                               │ HTTPS
-                               ▼
-                    ┌──────────────────┐
-                    │   CloudFront     │
-                    │   (CDN/Cache)    │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │   API Gateway    │
-                    │  (REST/GraphQL)  │
-                    └────────┬─────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        │                    │                    │
-   ┌────▼─────┐         ┌───▼──────┐        ┌───▼──────┐
-   │ Lambda   │         │ Lambda   │        │ Lambda   │
-   │ Function │         │ Function │        │ Function │
-   │  (Auth)  │         │  (Users) │        │ (Orders) │
-   └────┬─────┘         └────┬─────┘        └────┬─────┘
-        │                    │                    │
-        │              ┌─────▼─────┐              │
-        │              │ DynamoDB  │              │
-        └─────────────▶│  (NoSQL)  │◀─────────────┘
-                       └─────┬─────┘
-                             │
-                    ┌────────▼─────────┐
-                    │   EventBridge    │
-                    │ (Event routing)  │
-                    └────────┬─────────┘
-                             │
-                    ┌────────▼─────────┐
-                    │     Lambda       │
-                    │ (Notifications)  │
-                    └────────┬─────────┘
-                             │
-                       ┌─────┴─────┐
-                       │           │
-                  ┌────▼────┐ ┌───▼────┐
-                  │   SES   │ │  SNS   │
-                  │ (Email) │ │ (SMS)  │
-                  └─────────┘ └────────┘
-
-Storage & Static Assets:
-┌──────────────────────────────────────┐
-│           S3 Bucket                  │
-│  • Static Website Files (HTML/JS)   │
-│  • User Uploads                      │
-│  • Application Logs                  │
-└──────────────────────────────────────┘
-
-Serverless Benefits:
-✅ No server management
-✅ Automatic scaling
-✅ Pay per execution
-✅ Built-in high availability
-
-Trade-offs:
-⚠️  Cold start latency
-⚠️  Vendor lock-in
-⚠️  Debugging complexity
-⚠️  Execution time limits
-"""
-
-    @staticmethod
-    def event_driven() -> str:
-        """Generate event-driven architecture ASCII diagram."""
-        return """
-╔══════════════════════════════════════════════════════════════════╗
-║                   EVENT-DRIVEN ARCHITECTURE                       ║
-╚══════════════════════════════════════════════════════════════════╝
-
-Event Producers                Event Bus               Event Consumers
-──────────────                ───────────              ───────────────
-
-┌──────────────┐                                      ┌──────────────┐
-│   User       │                                      │   Email      │
-│   Service    │──┐                                ┌─▶│   Service    │
-└──────────────┘  │                                │  └──────────────┘
-                  │  user.created                  │
-                  │                                │
-┌──────────────┐  │     ┌────────────────────┐    │  ┌──────────────┐
-│   Order      │  │     │                    │    │  │  Analytics   │
-│   Service    │──┼────▶│   Event Bus        │────┼─▶│   Service    │
-└──────────────┘  │     │   (Kafka/RabbitMQ) │    │  └──────────────┘
-                  │     │                    │    │
-                  │     └────────────────────┘    │
-┌──────────────┐  │              │                │  ┌──────────────┐
-│   Payment    │  │              │                └─▶│  Notification│
-│   Service    │──┘              │                   │   Service    │
-└──────────────┘                 │                   └──────────────┘
-                                 │
-                                 ▼
-                        ┌────────────────┐
-                        │  Event Store   │
-                        │  (Audit Log)   │
-                        └────────────────┘
-
-Event Flow Example:
-
-1. User places order
-   Order Service publishes → "order.placed" event
-
-2. Event Bus routes to subscribers:
-   ┌─ Payment Service   → Process payment
-   ├─ Inventory Service → Update stock
-   ├─ Email Service     → Send confirmation
-   └─ Analytics Service → Track metrics
-
-3. Payment completes
-   Payment Service publishes → "payment.completed"
-
-4. Triggers next workflow:
-   ┌─ Order Service     → Update order status
-   └─ Shipping Service  → Initiate delivery
-
-Event Types:
-📨 Domain Events    = Business actions (order.placed)
-🔔 Integration Events = System integration (payment.processed)
-📊 Notification Events = User alerts (email.sent)
-
-Benefits:
-✅ Loose coupling
-✅ Asynchronous processing
-✅ Scalability
-✅ Audit trail
-
-Challenges:
-⚠️  Eventual consistency
-⚠️  Complex debugging
-⚠️  Message ordering
-⚠️  Duplicate handling
-"""
+from clioraOps_cli.features.models import DiagramFormat, ArchitecturePattern, DiagramResult
+from clioraOps_cli.features.ascii_gen import ASCIIArtGenerator
+from clioraOps_cli.features.visualizer_explanations import get_explanation
 
 
 class ArchitectureVisualizer:
@@ -476,9 +24,10 @@ class ArchitectureVisualizer:
     Main visualizer class for generating architecture diagrams.
     """
     
-    def __init__(self, mode=None):
+    def __init__(self, mode=None, ai=None):
         """Initialize the visualizer."""
         self.mode = mode
+        self.ai = ai
         self.ascii_generator = ASCIIArtGenerator()
         self._check_dependencies()
     
@@ -532,12 +81,81 @@ class ArchitectureVisualizer:
             return self._generate_mermaid(pattern, include_explanation)
         elif output_format in [DiagramFormat.PNG, DiagramFormat.SVG]:
             return self._generate_image(pattern, output_format, output_path, include_explanation)
-        else:
+    def generate_custom(
+        self,
+        topic: str,
+        output_format: DiagramFormat = DiagramFormat.ASCII,
+        include_explanation: bool = True
+    ) -> DiagramResult:
+        """
+        Generate a custom architecture diagram using AI.
+        """
+        if not self.ai:
             return DiagramResult(
                 success=False,
                 format=output_format,
-                error=f"Unsupported format: {output_format}"
+                error="AI assistance not available. Provide a built-in pattern or enable AI."
             )
+            
+        print(f"🤖 AI is designing: {topic}...")
+        
+        prompt = self._build_design_prompt(topic, output_format)
+        response = self.ai.chat(prompt)
+        
+        if not response.success:
+            return DiagramResult(
+                success=False,
+                format=output_format,
+                error=f"AI generation failed: {response.content}"
+            )
+            
+        content = response.content
+        ascii_out = ""
+        mermaid_out = ""
+        explanation = ""
+        
+        # Simple extraction logic
+        if output_format == DiagramFormat.ASCII:
+            ascii_out = self._extract_block(content, "ascii") or content
+        elif output_format == DiagramFormat.MERMAID:
+            mermaid_out = self._extract_block(content, "mermaid") or content
+            
+        if include_explanation:
+            explanation = self._extract_block(content, "explanation") or "Generated by AI."
+            
+        return DiagramResult(
+            success=True,
+            format=output_format,
+            ascii_output=ascii_out if output_format == DiagramFormat.ASCII else None,
+            content=mermaid_out if output_format == DiagramFormat.MERMAID else None,
+            explanation=explanation
+        )
+
+    def _build_design_prompt(self, topic: str, output_format: DiagramFormat) -> str:
+        """Build the prompt for AI architecture design."""
+        format_req = "ASCII Art diagram" if output_format == DiagramFormat.ASCII else "Mermaid.js diagram syntax"
+        
+        prompt = f"""Design a DevOps architecture for the following topic: {topic}
+        
+        Requirements:
+        1. Provide a clear {format_req}.
+        2. Provide a brief educational explanation of the architecture.
+        3. Format your response with clearly marked blocks:
+           [ASCII] or [MERMAID] for the diagram code.
+           [EXPLANATION] for the educational text.
+        """
+        
+        if output_format == DiagramFormat.ASCII:
+            prompt += "\nFor ASCII, use standard box-drawing characters or simple symbols (+, -, |) and keep it readable in a 80-character wide terminal."
+            
+        return prompt
+
+    def _extract_block(self, text: str, block_type: str) -> Optional[str]:
+        """Extract a marked block from AI response."""
+        import re
+        pattern = f"\\[{block_type.upper()}\\](.*?)(?=\\[|$)"
+        match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+        return match.group(1).strip() if match else None
     
     def _generate_ascii(
         self,
@@ -745,171 +363,7 @@ graph TB
     
     def _get_explanation(self, pattern: ArchitecturePattern) -> str:
         """Get educational explanation for architecture pattern."""
-        explanations = {
-            ArchitecturePattern.MICROSERVICES: """
-🎓 MICROSERVICES ARCHITECTURE EXPLAINED
-
-What is it?
-Breaking your application into small, independent services that each do ONE thing well.
-Think of it like a restaurant: instead of one person doing everything (cooking, serving,
-cleaning), you have specialists - a chef, a waiter, a dishwasher. Each is independent
-and can be replaced or scaled without affecting the others.
-
-When to use:
-✅ Large, complex applications
-✅ Need to scale different parts independently
-✅ Different teams working on different features
-✅ Want to use different technologies per service
-
-When NOT to use:
-❌ Small applications (overkill)
-❌ Team not familiar with distributed systems
-❌ Simple CRUD apps
-❌ Need for strong consistency across all data
-
-Real-world examples:
-- Netflix (600+ microservices)
-- Amazon (service-oriented architecture)
-- Uber (food, rides, payments all separate)
-""",
-            ArchitecturePattern.CICD_PIPELINE: """
-🎓 CI/CD PIPELINE EXPLAINED
-
-What is it?
-Continuous Integration/Continuous Deployment - automatically testing and deploying
-code changes. Think of it like a factory assembly line: code goes in one end,
-tests run automatically, and working software comes out the other end.
-
-Pipeline Stages:
-1. Source: Developer pushes code to Git
-2. Build: Compile code, install dependencies
-3. Test: Run automated tests
-4. Package: Create deployable artifact (Docker image)
-5. Deploy: Push to staging, then production
-6. Monitor: Track health and rollback if needed
-
-Benefits:
-✅ Faster releases (hours instead of weeks)
-✅ Fewer bugs reach production
-✅ Consistent deployment process
-✅ Quick rollback if issues arise
-
-Best Practices:
-- Keep builds fast (<10 minutes)
-- Test everything automatically
-- Deploy to staging first
-- Use blue/green deployments
-- Monitor actively post-deployment
-""",
-            ArchitecturePattern.THREE_TIER: """
-🎓 THREE-TIER ARCHITECTURE EXPLAINED
-
-What is it?
-Separating your application into three logical layers. Think of it like a restaurant:
-- Presentation (dining area): What customers see and interact with
-- Application (kitchen): Where the work happens
-- Data (pantry): Where ingredients/data is stored
-
-The Three Tiers:
-1️⃣  Presentation Tier
-   - User interface (web, mobile)
-   - Handles user interactions
-   - No business logic
-
-2️⃣  Application Tier
-   - Business logic and rules
-   - Processes requests
-   - Coordinates between presentation and data
-
-3️⃣  Data Tier
-   - Database and file storage
-   - Data persistence
-   - Backups and recovery
-
-Why use it?
-✅ Clear separation of concerns
-✅ Easy to maintain and update
-✅ Security (layers can be firewalled)
-✅ Scale tiers independently
-
-Classic use case:
-Traditional web applications, enterprise systems, e-commerce platforms
-""",
-            ArchitecturePattern.SERVERLESS: """
-🎓 SERVERLESS ARCHITECTURE EXPLAINED
-
-What is it?
-You write code (functions), and the cloud provider runs it for you. No servers to
-manage! Think of it like using Uber instead of owning a car - you only pay when
-you use it, and someone else handles all the maintenance.
-
-Key Components:
-- Lambda Functions: Your code that runs on-demand
-- API Gateway: Routes requests to functions
-- Storage (S3): Static files and uploads
-- Database (DynamoDB): Data storage
-- Events: Triggers that start functions
-
-Benefits:
-✅ Zero server management
-✅ Automatic scaling (0 to millions)
-✅ Pay only for execution time
-✅ Built-in high availability
-
-Challenges:
-⚠️  Cold starts (first request slower)
-⚠️  15-minute execution limit (AWS Lambda)
-⚠️  Harder to debug
-⚠️  Vendor lock-in
-
-Best for:
-- APIs with sporadic traffic
-- Event-driven workflows
-- Scheduled tasks
-- Real-time file processing
-""",
-            ArchitecturePattern.EVENT_DRIVEN: """
-🎓 EVENT-DRIVEN ARCHITECTURE EXPLAINED
-
-What is it?
-Services communicate by publishing and subscribing to events. Think of it like
-a notification system: when something happens (event), interested parties get
-notified automatically without directly calling each other.
-
-How it works:
-1. Service A does something (e.g., user signs up)
-2. Service A publishes an event: "user.created"
-3. Event Bus routes event to subscribers
-4. Services B, C, D all receive and react independently
-
-Example Flow:
-User places order →
-   ├─ Order Service: Create order record
-   ├─ Payment Service: Charge credit card
-   ├─ Inventory Service: Reserve items
-   ├─ Email Service: Send confirmation
-   └─ Analytics Service: Track conversion
-
-Benefits:
-✅ Loose coupling (services don't know about each other)
-✅ Easy to add new features (just subscribe to events)
-✅ Asynchronous (don't wait for responses)
-✅ Scalable
-
-Challenges:
-⚠️  Eventual consistency (not immediate)
-⚠️  Harder to trace failures
-⚠️  Duplicate events possible
-⚠️  Message ordering complexit
-
-Best for:
-- Complex workflows with many steps
-- Systems that need to scale independently
-- When adding features frequently
-"""
-        }
-        
-        return explanations.get(pattern, "")
+        return get_explanation(pattern)
     
     def list_available_patterns(self) -> List[Tuple[str, str]]:
         """List all available architecture patterns."""

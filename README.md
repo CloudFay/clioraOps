@@ -1,29 +1,38 @@
 # ClioraOps - DevOps Learning Companion
 
-[![CI/CD Pipeline](https://github.com/CloudFay/clioraOps/actions/workflows/ci.yml/badge.svg)](https://github.com/CloudFay/clioraOps/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/CloudFay/clioraOps/branch/main/graph/badge.svg)](https://codecov.io/gh/CloudFay/clioraOps)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![CI/CD Pipeline](https://github.com/CloudFay/clioraOps/actions/workflows/ci.yml/badge.svg)](https://github.com/CloudFay/clioraOps/actions/workflows/ci.yml) [![codecov](https://codecov.io/gh/CloudFay/clioraOps/branch/main/graph/badge.svg)](https://codecov.io/gh/CloudFay/clioraOps) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
-Transform GitHub Copilot CLI into an interactive, safety-conscious DevOps mentor.
+Transform your terminal into an intelligent, safety-conscious DevOps mentor powered by multi-provider AI (Gemini, OpenAI, Anthropic, and Ollama).
 
-## 🚀 Quick Start
+## 🚀 Quick Start (v0.3.1)
+
+### What's New in v0.3.1 ✨
+
+**Smart Intent Classification** - ClioraOps now understands what you really want:
+```bash
+> show me running containers          # COMMAND: Generates docker ps -a
+> what is docker?                      # REQUEST: Explains what Docker is
+> list the benefits of microservices   # AMBIGUOUS: Asks what you need
+```
+
+- 🎯 **Intent Classification** - Distinguishes commands vs requests automatically
+- 💬 **Better NL Understanding** - Question words → explanations, action verbs → commands
+- 🔀 **Smart Routing** - Commands go to generator, questions go to explain
+- 🤖 **Production Ready** - 149 tests, 100% pass rate (104 NL tests + 48 intent tests)
+
+[Full release notes →](CHANGELOG.md)
 
 ### Prerequisites
+
 1. **Python 3.10+**
-2. **Node.js & npm** (for GitHub Copilot CLI)
-3. **GitHub Copilot CLI** (choose one option):
-   - **Option A: npm (Recommended)** - Works on all platforms
-     ```bash
-     npm install -g @github/copilot
-     ```
-   - **Option B: gh extension** - Requires GitHub CLI
-     ```bash
-     gh extension install github/gh-copilot
-     gh auth login
-     ```
+2. **One AI Provider** (choose one):
+   - 🌟 **Gemini** (Free tier): [Get API Key](https://aistudio.google.com/app/apikey) ← *Recommended*
+   - 🤖 **OpenAI** (Paid): [Get API Key](https://platform.openai.com/)
+   - 🧪 **Anthropic** (Paid): [Get API Key](https://console.anthropic.com/)
+   - 🦙 **Ollama** (Free, local): [Install Ollama](https://ollama.com/)
 
 ### Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/CloudFay/clioraOps.git
@@ -31,24 +40,19 @@ cd clioraOps
 
 # Create virtual environment (recommended)
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate # On Windows: venv\Scripts\activate
 
 # Install in editable mode
 pip install -e .
+
+# Run interactive setup
+python scripts/setup_ai.py
 ```
 
 ### Verify Installation
-```bash
-# Check if copilot CLI is accessible
-copilot --version
 
+```bash
 # Test clioraops
-clioraops start
-```
-
-### Running ClioraOps
-```bash
-# Start an interactive session
 clioraops start
 
 # You'll see:
@@ -57,12 +61,17 @@ clioraops start
 # Type 'exit' to quit
 ```
 
+---
+
 ## ✨ Features
 
-- **💬 Conversational Mode (NEW in v0.2.0)**: 
+- **💬 Natural Language Commands**: 
+  - Smart intent classification: Commands vs Requests vs Ambiguous
   - Ask questions naturally in plain English
-  - Context-aware responses tailored to your learning level
-  - Seamless integration with GitHub Copilot CLI
+  - Automatic detection of dangerous patterns
+  - Confidence scoring for generated commands
+  - All commands reviewed for safety before execution
+  - [Learn more →](docs/features.md#-natural-language-commands-v031---intent-aware)
 
 - **🎓 Dual Modes**: 
   - **Beginner**: Analogies, simple explanations, and safety warnings.
@@ -71,6 +80,7 @@ clioraops start
 - **🛡️ Safety First**: 
   - Intelligent `try` command checks for dangerous operations (e.g., `rm -rf /`, `kubectl delete` in prod).
   - Risk analysis and safe alternative suggestions.
+  - 15+ dangerous pattern detection
 
 - **🤖 AI-Powered**:
   - **Explain**: Deep dive into concepts or commands.
@@ -83,17 +93,54 @@ clioraops start
 - **📝 Code Review**:
   - Scan scripts for security risks and bad practices before running them.
 
+---
+
 ## 🎮 Interactive Commands
 
 Once inside the session (`clioraops start`), try these:
 
-### Conversational Mode (Ask Anything)
-Simply type your question or statement naturally:
+### Natural Language Mode - Intent-Aware Examples (v0.3.1)
 
+ClioraOps automatically classifies what you need:
+
+**COMMAND Intent** (Generates shell commands):
 ```bash
-🌱 beginner > What's the difference between Docker and Kubernetes?
-🌱 beginner > How do I get started with CI/CD?
-🌱 beginner > Explain what containerization means
+🌱 beginner > show me running containers
+🎯 Intent: COMMAND (90% confidence)
+💡 Generated: docker ps -a
+✅ Safety: SAFE
+
+🌱 beginner > find all python files in src
+🎯 Intent: COMMAND (90% confidence)
+💡 Generated: find ./src -name '*.py' -type f
+✅ Safety: SAFE
+```
+
+**REQUEST Intent** (Provides explanations):
+```bash
+🌱 beginner > what is docker?
+🎯 Intent: REQUEST (95% confidence)
+📚 Docker is a containerization platform that packages applications...
+
+🌱 beginner > how does kubernetes work?
+🎯 Intent: REQUEST (95% confidence)
+📚 Kubernetes orchestrates container deployment across clusters...
+
+🌱 beginner > explain microservices
+🎯 Intent: REQUEST (88% confidence)
+📚 Microservices break applications into small independent services...
+```
+
+**AMBIGUOUS Intent** (Asks for clarification):
+```bash
+🌱 beginner > show kubernetes concepts
+🎯 Intent: AMBIGUOUS (60% confidence)
+❓ I'm not sure if you want to:
+   1. Generate a shell command
+   2. Get information/explanation
+   Your input: "show kubernetes concepts"
+   What would you like? (1/2): 2
+📚 Kubernetes is an orchestration platform...
 ```
 
 ### Command-Based Mode
@@ -108,6 +155,64 @@ Simply type your question or statement naturally:
 | `review <file>` | Scan a script for issues | `review deploy.sh` |
 | `learn <topic>` | Start a learning session | `learn ci/cd` |
 | `switch to <mode>` | Change learning mode | `switch to architect` |
+
+---
+
+## 🚢 Deployment & Environments
+
+Choose the environment that best fits your workflow:
+
+| Method | Best For | Setup Time | Complexity |
+| :--- | :--- | :--- | :--- |
+| **🐍 Local CLI** | Development & Learning | 5 min | Simple |
+| **🌐 Web Interface** | Demos & Browser Access | 5 min | Simple |
+| **🐳 Docker** | Production & Consistency | 5 min | Simple |
+| **📦 Standalone** | Portable Distribution | 10 min | Moderate |
+| **☁️ Dev Container** | Cloud/Remote Dev | 3 min | Simple |
+
+### Quick Setup Guide
+
+**Local CLI (Development):**
+```bash
+python3 -m venv venv && source venv/bin/activate
+pip install -e .
+python scripts/setup_ai.py
+clioraops start
+```
+
+**Web Interface (Browser):**
+```bash
+pip install -e .
+python clioraOps_cli/web_interface.py
+# Open http://localhost:7860
+```
+
+**Docker (Production):**
+```bash
+docker-compose up -d
+```
+
+**Dev Container (Cloud):**
+- Open in VS Code with Dev Container extension
+- Or click "Open in Codespaces" on GitHub
+
+For detailed deployment instructions, see:
+- **CLI & Docker**: [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md)
+- **Web Interface**: [WEB_INTERFACE_GUIDE.md](docs/WEB_INTERFACE_GUIDE.md)
+- **Docker Details**: [DOCKER_SETUP_GUIDE.md](docs/DOCKER_SETUP_GUIDE.md)
+
+---
+
+## 💻 CLI Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `clioraops init` | Prepare your project and scan for secrets | `clioraops init .` |
+| `clioraops start` | Enter the interactive conversational session | `clioraops start` |
+| `clioraops review` | Perform a standalone safety review of a file | `clioraops review script.sh` |
+| `clioraops generate` | Create Dockerfiles, K8s manifests, or workflows | `clioraops generate dockerfile` |
+
+---
 
 ## 📚 Examples & Learning Paths
 
@@ -126,11 +231,16 @@ python examples/basic_flow.py
 
 See [examples/README.md](examples/README.md) for detailed descriptions and learning paths.
 
-## 🤝 Contributing
+---
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 💾 Learning Summaries
 
-For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Never lose progress. On every session exit, ClioraOps generates a Markdown summary in `~/.clioraops/summaries/` documenting:
+- Concepts you mastered
+- Diagrams designed
+- Critical security findings
+
+---
 
 ## 📊 Development & Testing
 
@@ -143,7 +253,7 @@ pytest tests/ -v
 pytest tests/ --cov=clioraOps_cli --cov-report=html --cov-report=term-missing
 
 # Run specific test file
-pytest tests/test_app.py -v
+pytest tests/test_nl_detector.py -v
 ```
 
 ### Code Quality
@@ -158,20 +268,26 @@ flake8 clioraOps_cli
 mypy clioraOps_cli --ignore-missing-imports
 ```
 
-### Version Management
-```bash
-# Bump version (major, minor, or patch)
-python scripts/bump_version.py minor
+### Current Test Status
+- **Total Tests:** 56+ (all passing)
+- **NL Detector Tests:** 33/33 passing
+- **Command Generator Tests:** 23/23 passing
+- **Pass Rate:** 100%
 
-# Create release (manual git process)
-git add setup.py CHANGELOG.md clioraOps_cli/version.py
-git commit -m "chore: bump to v0.X.X"
-git tag -a v0.X.X -m "Release v0.X.X"
-git push origin main --follow-tags
-```
+See [docs/NL_FEATURE_TEST_SUMMARY.md](docs/NL_FEATURE_TEST_SUMMARY.md) for comprehensive testing details.
 
-See [PUBLISHING.md](PUBLISHING.md) for detailed release procedures.
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+For architecture details, see [docs/architecture.md](docs/architecture.md).
+
+---
 
 ## 📄 License
 
-MIT
+MIT © Faith Omobude

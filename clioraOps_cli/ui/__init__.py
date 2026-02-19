@@ -1,1 +1,3 @@
-"""User interface components."""
+"""
+ClioraOps UI - User interface and console formatting components.
+"""

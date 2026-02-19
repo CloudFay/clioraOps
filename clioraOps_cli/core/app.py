@@ -7,27 +7,21 @@ from clioraOps_cli.core.modes import Mode
 from clioraOps_cli.core.session import SessionManager
 from clioraOps_cli.core.commands import CommandRouter
 from clioraOps_cli.config.settings import save_config
-from clioraOps_cli.integrations.copilot import (
-    GitHubCopilotIntegration,
-    CopilotError,
-)
+from clioraOps_cli.integrations.ai_provider import create_ai_client
 
 
 class ClioraOpsApp:
     def __init__(self, mode: Mode):
         self.mode = mode
 
+        # Initialize Unified AI Provider (Gemini → Ollama → Local fallback)
+        self.ai = create_ai_client(mode=mode)
 
-        try:
-            self.copilot = GitHubCopilotIntegration(mode)
-        except CopilotError:
-            self.copilot = None
-
-
-        self.session = SessionManager(mode, self.copilot)
+        self.session = SessionManager(mode, self.ai)
         self.command_router = CommandRouter(
             mode,
-            self.session.context
+            self.session.context,
+            self.ai
         )
 
 

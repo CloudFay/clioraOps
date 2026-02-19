@@ -2,7 +2,7 @@
 
 ## System Overview
 
-ClioraOps is designed as a modular, improved CLI wrapper around the GitHub Copilot CLI. It enhances the raw AI capabilities with safety rails, educational modes, and structured DevOps workflows.
+ClioraOps is designed as a modular, improved CLI tool powered by Google Gemini AI. It enhances raw AI capabilities with safety rails, educational modes, and structured DevOps workflows.
 
 ### Core Philosophy
 1.  **Safety First**: No command should be executed blindly. Destructive commands are intercepted.
@@ -23,13 +23,11 @@ graph TD
     Router --> Debugger[Code Debugger]
     Router --> Learner[Learning Module]
     
-    Reviewer --> Copilot[GitHub Copilot Integration]
-    Visualizer --> Copilot
-    Generator --> Copilot
-    Debugger --> Copilot
-    Learner --> Copilot
-    
-    Copilot --> GH[GitHub CLI (gh)]
+    Reviewer --> Gemini[Google Gemini AI]
+    Visualizer --> Gemini
+    Generator --> Gemini
+    Debugger --> Gemini
+    Learner --> Gemini
 ```
 
 ## Module Breakdown
@@ -39,18 +37,22 @@ The backbone of the application.
 
 -   **`app.py`**: Entry point. Initializes the application state and components.
 -   **`session.py`**: Manages the interactive session loop, ensuring state persistence across commands.
--   **`commands.py`**: Routes parsed commands to the appropriate feature handlers.
--   **`modes.py`**: Defines the `Mode` enum (`BEGINNER`, `ARCHITECT`) utilized across all modules to adjust tone and complexity.
+-   **`commands.py`**: Routes parsed commands to handlers. Integrated with `PolicyManager` for access control.
+-   **`init_manager.py` (v0.3.0)**: Handles project-specific agent instructions and initial secret scans.
+-   **`policy.py`**: Manages filesystem access policies for AI operations.
+-   **`modes.py`**: Defines `Mode` (`BEGINNER`, `ARCHITECT`).
 
 ### 2. Features (`clioraOps_cli.features`)
 Specific capabilities exposure to the user.
 
 -   **`reviewer.py`**: 
-    -   Implements regex-based pattern matching for dangerous commands (`rm -rf`, `DROP DATABASE`).
-    -   Provides educational feedback and safe alternatives.
+    -   Implements regex-based pattern matching for dangerous commands.
+    -   Detects hardcoded secrets and uninitialized variable usage (`rm -rf $VAR`).
 -   **`visualizer.py`**: 
-    -   Generates ASCII art diagrams for system architectures.
-    -   Bridge between high-level concepts and visual mental models.
+    -   Orchestrates diagram generation using specialized modules:
+        -   **`models.py`**: Shared diagram data models.
+        -   **`ascii_gen.py`**: Predefined ASCII templates.
+    -   Supports AI-aided custom diagrams and Mermaid syntax.
 -   **`code_generator.py`**: 
     -   Uses templates and AI to scaffold project files.
     -   Ensures generated code follows best practices for the active mode.
@@ -61,10 +63,10 @@ Specific capabilities exposure to the user.
 ### 3. Integrations (`clioraOps_cli.integrations`)
 External system interfaces.
 
--   **`copilot.py`**:
-    -   Wrapper around `gh copilot` CLI.
-    -   Injects system prompts based on the current mode.
-    -   Handles process management and error parsing.
+-   **`ai_provider.py`**:
+    -   Centralizes AI logic for Google Gemini, OpenAI, Anthropic, Ollama, and local fallbacks.
+    -   Standardizes prompts and responses across different providers.
+    -   Handles API authentication and error reporting for all supported platforms.
 
 ## Data Flow
 
@@ -80,8 +82,8 @@ External system interfaces.
 ### AI interaction Flow
 1.  **Input**: User types `explain kubernetes pods`.
 2.  **Context**: System checks mode (e.g., `Beginner`).
-3.  **Prompt Engineering**: `CopilotIntegration` wraps the query: *"Explain this for a beginner using simple analogies..."*
-4.  **Execution**: Calls `gh copilot` subprocess.
+3.  **Prompt Engineering**: `AIClient` constructs a rich prompt with the active mode's persona and session context.
+4.  **Execution**: Calls Google Gemini AI API via `GeminiProvider`.
 5.  **Output**: Returns and formats the AI response.
 
 ## Future Extensibility

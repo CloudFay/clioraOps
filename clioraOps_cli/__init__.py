@@ -1,5 +1,5 @@
 """
-ClioraOps - DevOps Learning Companion powered by GitHub Copilot CLI that helps you learn DevOps through safe experimentation
+ClioraOps - DevOps Learning Companion powered by Ollama (self-hosted AI) that helps you learn DevOps through safe experimentation
 and intelligent guidance.
 """
 

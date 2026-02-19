@@ -41,12 +41,12 @@ class CodeGenerator:
     """
     Generates DevOps code with AI assistance.
     
-    Uses GitHub Copilot to generate context-aware, production-ready code.
+    Uses AI to generate context-aware, production-ready code.
     """
     
-    def __init__(self, mode, copilot=None):
+    def __init__(self, mode, ai=None):
         self.mode = mode
-        self.copilot = copilot
+        self.ai = ai
         
         # Templates for common patterns
         self.templates = {
@@ -76,8 +76,8 @@ class CodeGenerator:
         # Build AI prompt
         prompt = self._build_generation_prompt(code_type, description, context)
         
-        # Generate with Copilot if available
-        if self.copilot:
+        # Generate with AI if available
+        if self.ai:
             generated = self._generate_with_ai(prompt, code_type)
         else:
             generated = self._generate_from_template(code_type, description, context)
@@ -138,12 +138,16 @@ ARCHITECT MODE:
         """Generate code using AI."""
         
         try:
-            response = self.copilot.ask(prompt, self.mode)
+            # Check if ai has generate_code or ask
+            if hasattr(self.ai, 'generate_code'):
+                response_text = self.ai.generate_code(prompt)
+            else:
+                response_text = self.ai.ask(prompt)
             
-            if response.success:
+            if response_text:
                 # Extract code and explanation from response
-                content = self._extract_code_from_response(response.output)
-                explanation = self._extract_explanation_from_response(response.output)
+                content = self._extract_code_from_response(response_text)
+                explanation = self._extract_explanation_from_response(response_text)
                 
                 # Determine filename
                 filename = self._get_filename(code_type)
@@ -355,6 +359,64 @@ Multi-stage Dockerfile advantages:
                     "Update runtime dependencies",
                     "Set correct CMD for your app"
                 ]
+            },
+            'go': {
+                'content': '''# Multi-stage Go Dockerfile
+# Stage 1: Build
+FROM golang:1.21-alpine AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+# Stage 2: Runtime
+FROM alpine:latest
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=builder /app/main .
+EXPOSE 8080
+CMD ["./main"]
+''',
+                'explanation': 'Optimized multi-stage Go build using Alpine for a tiny footprint.',
+                'next_steps': ["Ensure go.mod is present", "Build: docker build -t go-app ."]
+            },
+            'rust': {
+                'content': '''# Multi-stage Rust Dockerfile
+# Stage 1: Build
+FROM rust:1.75-slim AS builder
+WORKDIR /app
+COPY . .
+RUN cargo build --release
+
+# Stage 2: Runtime
+FROM debian:bookworm-slim
+WORKDIR /app
+COPY --from=builder /app/target/release/myapp .
+CMD ["./myapp"]
+''',
+                'explanation': 'Production Rust build using Debian slim for stability.',
+                'next_steps': ["Build: docker build -t rust-app ."]
+            },
+            'java': {
+                'content': '''# Multi-stage Java (Maven) Dockerfile
+# Stage 1: Build
+FROM maven:3.9-eclipse-temurin-17 AS builder
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline
+COPY src ./src
+RUN mvn package -DskipTests
+
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+''',
+                'explanation': 'Java build using Temurin JRE Alpine for optimal performance and size.',
+                'next_steps': ["Build: docker build -t java-app ."]
             }
         }
     
@@ -635,7 +697,7 @@ def format_generated_code(generated: GeneratedCode, mode=None) -> str:
 
 # Example usage
 if __name__ == "__main__":
-    from clioraops_cli.core.modes import Mode
+    from clioraOps_cli.core.modes import Mode
     
     generator = CodeGenerator(Mode.BEGINNER)
     

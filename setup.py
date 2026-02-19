@@ -5,10 +5,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="clioraops",  
-    version="0.2.0",
+    version="0.3.0",
     author="Faith Omobude",
     author_email="fayosarumwense@gmail.com",
-    description="DevOps learning and architecture companion CLI",
+    description="Your Intelligent DevOps Mentor powered by Multi-Provider AI",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/CloudFay/clioraOps",
@@ -30,18 +30,16 @@ setup(
 
     install_requires=[
         "click>=8.0.0",
-        "rich>=13.0.0",
+        "rich>=10.0.0",
         "pyyaml>=6.0",
         "prompt-toolkit>=3.0.0",
+        "requests>=2.28.0",
+        "google-generativeai>=0.3.0",
+        "diagrams>=0.23.0",
+        "graphviz>=0.20.0",
+        "gradio>=4.0.0",
+        "python-dotenv>=1.0.0",
     ],
-
-    # Optional heavy dependencies
-    extras_require={
-        "visualizer": [
-            "diagrams>=0.23.0",
-            "graphviz>=0.20.0",
-        ]
-    },
 
     entry_points={
         "console_scripts": [

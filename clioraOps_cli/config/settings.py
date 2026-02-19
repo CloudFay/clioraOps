@@ -69,3 +69,31 @@ def resolve_mode(cli_arg_mode: str = None) -> Mode:
     
     save_config(mode)
     return mode
+
+
+def get_nl_settings() -> dict:
+    """Get natural language generation settings."""
+    config = load_config()
+    return {
+        "enabled": config.get("nl_generation_enabled", True),
+        "auto_execute": config.get("nl_auto_execute", False),
+        "show_alternatives": config.get("nl_show_alternatives", False),
+    }
+
+
+def set_nl_settings(enabled: bool = None, auto_execute: bool = None, show_alternatives: bool = None) -> None:
+    """Update natural language generation settings."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        config = load_config()
+        if enabled is not None:
+            config["nl_generation_enabled"] = enabled
+        if auto_execute is not None:
+            config["nl_auto_execute"] = auto_execute
+        if show_alternatives is not None:
+            config["nl_show_alternatives"] = show_alternatives
+        
+        with open(CONFIG_FILE, "w") as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"⚠️  Failed to save NL settings: {e}")

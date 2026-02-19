@@ -1,0 +1,66 @@
+# ClioraOps Security Policy
+# Controls file access, resource usage, and security boundaries
+
+# Security level: permissive, moderate, strict, sandbox
+level: moderate
+
+# Allowed base paths (whitelist)
+allowed_paths:
+  - ~/.clioraops
+  - ${PWD}
+  - /tmp
+  - /var/tmp
+
+# Blocked base paths (blacklist)
+blocked_paths:
+  - /etc
+  - /root
+  - /sys
+  - /proc
+  - /boot
+  - /.dockerenv
+
+# Allowed file extensions
+allowed_file_types:
+  - .py
+  - .yaml
+  - .yml
+  - .json
+  - .txt
+  - .md
+  - .sh
+  - .dockerfile
+  - .tf
+  - .tfvars
+  - .xml
+  - .toml
+  - .js
+  - .ts
+  - .go
+
+# Blocked file extensions
+blocked_file_types:
+  - .exe
+  - .bin
+  - .so
+  - .dll
+  - .dylib
+
+# Resource limits
+max_file_size_mb: 100
+max_generated_files: 1000
+max_concurrent_operations: 10
+
+# File operations
+file_creation_allowed: true
+file_modification_allowed: true
+file_deletion_allowed: false
+symlink_creation_allowed: false
+
+# Network operations
+network_operations_allowed: false
+external_command_execution_allowed: true
+
+# Logging
+audit_logging_enabled: false
+audit_log_file: ~/.clioraops/audit.log

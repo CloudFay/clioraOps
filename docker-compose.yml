@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # ClioraOps main application
+  clioraops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: clioraops:latest
+    container_name: clioraops-app
+    stdin_open: true
+    tty: true
+    depends_on:
+      ollama:
+        condition: service_started
+
+    # Environment variables
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - CLIORAOPS_MODE=${CLIORAOPS_MODE:-beginner}
+      # Point to the ollama service container
+      - OLLAMA_HOST=http://ollama:11434
+
+    # Volume mounts
+    volumes:
+      - ./workspace:/workspace
+      - clioraops-config:/root/.clioraops
+
+    networks:
+      clioraops-net:
+        aliases:
+          - app
+
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Ollama service (for local AI)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: clioraops-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      clioraops-net:
+        aliases:
+          - ai-provider
+    restart: unless-stopped
+
+    # Health check
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:11434/api/tags" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+# Named volumes
+volumes:
+  clioraops-config:
+    driver: local
+  ollama-data:
+    driver: local
+
+# Networks
+networks:
+  clioraops-net:
+    driver: bridge

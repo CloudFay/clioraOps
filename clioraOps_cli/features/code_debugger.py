@@ -42,9 +42,9 @@ class CodeDebugger:
     Analyzes errors, suggests fixes, and explains root causes.
     """
     
-    def __init__(self, mode, copilot=None, context=None):
+    def __init__(self, mode, ai=None, context=None):
         self.mode = mode
-        self.copilot = copilot
+        self.ai = ai
         self.context = context
         
         # Common error patterns
@@ -80,7 +80,7 @@ class CodeDebugger:
             return pattern_match
         
         # Use AI for unknown errors
-        if self.copilot:
+        if self.ai:
             return self._debug_with_ai(error_message, command, code, category, context)
         else:
             return self._debug_generic(error_message, category)
@@ -141,25 +141,23 @@ class CodeDebugger:
     ) -> DebugResult:
         """Use AI to debug unknown errors."""
         
-        # Build debugging prompt
-        prompt = self._build_debug_prompt(error_message, command, code, category, context)
-        
         try:
-            response = self.copilot.troubleshoot_with_copilot(
-                error_message=error_message,
-                command=command or "unknown",
-                context=context.get('description') if context else None,
-                mode=self.mode
-            )
+            # Build full debug context
+            debug_prompt = f"Error: {error_message}\nCommand: {command or 'unknown'}\nCategory: {category.value}"
+            if context and context.get('description'):
+                debug_prompt += f"\nContext: {context.get('description')}"
+                
+            # Use Ollama debug method
+            response_text = self.ai.debug(debug_prompt)
             
-            if response.success:
+            if response_text:
                 # Parse AI response
-                parsed = self._parse_ai_debug_response(response.output)
+                parsed = self._parse_ai_debug_response(response_text)
                 
                 return DebugResult(
                     success=True,
                     category=category,
-                    root_cause=parsed['root_cause'],
+                    root_cause=parsed['root_cause'] or response_text,
                     explanation=parsed['explanation'],
                     solutions=parsed['solutions'],
                     prevention=parsed.get('prevention'),
@@ -289,14 +287,15 @@ PREVENTION: [monitoring/prevention]
         return DebugResult(
             success=True,
             category=category,
-            root_cause="Error analysis requires GitHub Copilot CLI",
-            explanation=f"Install gh copilot for detailed debugging of {category.value} errors.",
+            root_cause="AI analysis requires Ollama to be running",
+            explanation=f"Start Ollama for detailed debugging of {category.value} errors.",
             solutions=[
-                "Install GitHub CLI: https://cli.github.com/",
-                "Install Copilot extension: gh extension install github/gh-copilot",
+                "Install Ollama: https://ollama.com/",
+                "Run 'ollama serve' in your terminal",
+                "Pull a model: 'ollama pull mistral'",
                 "Restart ClioraOps for AI-powered debugging"
             ],
-            prevention="Enable Copilot for intelligent error prevention"
+            prevention="Enable Ollama for intelligent error prevention"
         )
     
     def _build_error_patterns(self) -> Dict[ErrorCategory, List[Dict]]:
@@ -478,7 +477,7 @@ def format_debug_result(result: DebugResult, mode=None) -> str:
 
 # Example usage
 if __name__ == "__main__":
-    from clioraops_cli.core.modes import Mode
+    from clioraOps_cli.core.modes import Mode
     
     debugger = CodeDebugger(Mode.BEGINNER)
     

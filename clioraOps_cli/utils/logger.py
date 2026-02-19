@@ -4,7 +4,7 @@ from datetime import datetime
 DOCS_PATH = os.path.join(os.path.dirname(__file__), "../../docs")
 LEARNING_LOG = os.path.join(DOCS_PATH, "learning_log.md")
 
-def log_learning_session(topic, mode, user_input, copilot_output, visual_output="", review_output=""):
+def log_learning_session(topic, mode, user_input, ai_output, visual_output="", review_output=""):
     os.makedirs(DOCS_PATH, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -14,8 +14,8 @@ def log_learning_session(topic, mode, user_input, copilot_output, visual_output=
 **User Input:**  
 {user_input}
 
-**Copilot Output:**  
-{copilot_output}
+**AI Output:**  
+{ai_output}
 
 **Visualizer Output:**  
 {visual_output}
