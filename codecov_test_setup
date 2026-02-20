@@ -1,0 +1,44 @@
+Select a setup option
+
+We are using GitHub Actions
+
+Step 1: Output a Coverage report file in your CI
+Select your language below to generate your coverage reports. If your language isn't listed, visit our supported languages doc
+ for example repositories. Codecov generally supports XML and JSON formats.
+
+
+we are using --> Pytest
+Install requirements in your terminal:
+
+pip install pytest pytest-cov
+
+In a GitHub Action, run tests and generate a coverage report:
+
+pytest --cov --cov-branch --cov-report=xml
+
+Step 2: Select an upload token to add as a secret on GitHub-optional
+
+Repository token
+Use it for uploading coverage reports in the clioraOps repository.
+
+Step 3: add token as repository secret
+Codecov requires a token to authenticate uploading your coverage reports. Organization admin required to access organization settings > secrets and variables > actions
+
+CODECOV_TOKEN: "tell me when you want me to paste it"
+
+
+Your organization secret in GitHub should look like this:
+
+Step 4: Add Codecov to your GitHub Actions workflow yaml file
+After tests run, this will upload your coverage report to Codecov:
+
+- name: Upload coverage reports to Codecov
+    uses: codecov/codecov-action@v5
+    with:
+      token: ${{ secrets.CODECOV_TOKEN }}
+
+
+Your final GitHub Actions workflow for a project using Pytest could look something like this:
+
+Step 5: merge to main or your preferred feature branch
+Once merged to your default branch, subsequent pull requests will have Codecov checks and comments. Additionally, you'll find your repo coverage dashboard here. If you have merged, try reloading the page.
