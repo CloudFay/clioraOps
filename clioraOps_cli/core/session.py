@@ -7,14 +7,27 @@ from clioraOps_cli.core.context import SessionContext
 from clioraOps_cli.core.modes import Mode
 from clioraOps_cli.core.conversation import ConversationManager
 from clioraOps_cli.config.settings import save_config
-
+from clioraOps_cli.core.workspace_manager import WorkspaceManager
+from clioraOps_cli.core.workspace_store import WorkspaceStore
 
 class SessionManager:
     """Manages interactive session state."""
 
-    def __init__(self, mode: Mode, ollama=None):
+    def __init__(
+        self,
+        mode: Mode,
+        ollama=None,
+        workspace_manager: WorkspaceManager | None = None,
+    ):
         self.mode = mode
         self.context = SessionContext()
+
+        #Persistent workspace metadata
+        self.workspace_manager = (
+            workspace_manager
+            if workspace_manager is not None
+            else WorkspaceManager(store=WorkspaceStore())
+        )
 
         # Optional conversational layer
         if ollama:
@@ -22,16 +35,39 @@ class SessionManager:
         else:
             self.conversation = None
 
+    def _restore_saved_workspace(self) -> None:
+        """Restore saved workspace metadata without inspecting the project."""
+        try:
+            workspace = self.workspace_manager.restore_workspace()
+        except (ValueError, OSError) as exc:
+            print(f"⚠️ Could not restore saved workspace: {exc}")
+            return
+
+        if workspace is None:
+            return
+
+        location = str(workspace.working_directory)
+        project = workspace.project_name or "Unknown project"
+
+        print("\n📂 Restored saved workspace metadata")
+        print(f"   Project   : {project}")
+        print(f"   Directory : {location}")
+        print("   Note      : Workspace metadata has not been revalidated.")
+
     # -------------------------------------------------
     # INTERACTIVE SESSION LOOP
     # -------------------------------------------------
+
+
     def start_interactive(self, command_router):
         """Start enhanced REPL session."""
         from clioraOps_cli.version import __version__
-        
+
+        self._restore_saved_workspace()
+
         # Premium Boxed Banner
         width = 62
-        print("\n" + "┌" + "─" * (width-2) + "┐")
+        print("\n" + "┌" + "─" * (width - 2) + "┐")
         print(f"│{'🚀 ClioraOps v' + __version__:^{width-2}}│")
         print(f"│{'Your Intelligent DevOps Mentor':^{width-2}}│")
         print("└" + "─" * (width-2) + "┘")
@@ -255,7 +291,6 @@ class SessionManager:
 
     def save_session_summary(self):
         """Save a summary of the current session to a file."""
-        import json
         from datetime import datetime
         
         summary_dir = Path.home() / ".clioraops" / "summaries"

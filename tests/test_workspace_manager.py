@@ -3,6 +3,7 @@ from pathlib import Path
 
 from clioraOps_cli.core.workspace import WorkspaceContext
 from clioraOps_cli.core.workspace_manager import WorkspaceManager
+from clioraOps_cli.core.workspace_store import WorkspaceStore
 
 
 def test_manager_starts_without_active_workspace() -> None:
@@ -64,3 +65,57 @@ def test_select_workspace_without_optional_metadata(
     assert workspace.project_name is None
     assert workspace.project_type is None
     assert workspace.is_within_project is None
+
+def test_select_workspace_persists_state(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.json")
+    manager = WorkspaceManager(store=store)
+
+    manager.select_workspace(
+        tmp_path,
+        project_name="clioraOps",
+        project_type="python",
+    )
+
+    restored = store.load()
+    assert restored is not None
+    assert restored.project_name == "clioraOps"
+    assert restored.project_type == "python"
+
+
+def test_restore_workspace_loads_saved_state(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.json")
+    store.save(
+        WorkspaceContext(
+            working_directory=tmp_path,
+            project_name="clioraOps",
+        )
+    )
+    manager = WorkspaceManager(store=store)
+
+    restored = manager.restore_workspace()
+
+    assert restored is not None
+    assert manager.active_workspace == restored
+    assert restored.project_name == "clioraOps"
+
+
+def test_restore_workspace_returns_none_without_saved_state(
+    tmp_path: Path,
+) -> None:
+    manager = WorkspaceManager(
+        store=WorkspaceStore(tmp_path / "missing.json")
+    )
+
+    assert manager.restore_workspace() is None
+    assert manager.active_workspace is None
+
+
+def test_clear_workspace_can_remove_saved_state(tmp_path: Path) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.json")
+    manager = WorkspaceManager(store=store)
+    manager.select_workspace(tmp_path)
+
+    manager.clear_workspace(clear_saved=True)
+
+    assert manager.active_workspace is None
+    assert store.load() is None
