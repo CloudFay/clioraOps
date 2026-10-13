@@ -2,6 +2,8 @@
 Interactive session management with optional conversational support.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from clioraOps_cli.core.context import SessionContext
 from clioraOps_cli.core.modes import Mode

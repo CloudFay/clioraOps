@@ -1,6 +1,8 @@
 
 """Typed, read-only state model for an active ClioraOps workspace."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
 

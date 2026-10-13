@@ -1,8 +1,9 @@
 
 """Read-only discovery of project metadata from known marker filenames."""
 
-from pathlib import Path
+from __future__ import annotations
 
+from pathlib import Path
 from clioraOps_cli.core.workspace import WorkspaceContext
 
 

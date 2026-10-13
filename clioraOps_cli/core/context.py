@@ -5,6 +5,9 @@ Stores learning and project state so AI responses
 remain consistent across a session.
 """
 
+from __future__ import annotations
+
+
 class SessionContext:
     """Holds session memory and learning context."""
 

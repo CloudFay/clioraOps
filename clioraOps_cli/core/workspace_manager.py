@@ -1,5 +1,7 @@
 """Manage the explicitly selected ClioraOps workspace."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 from clioraOps_cli.core.workspace import WorkspaceContext

@@ -1,5 +1,7 @@
 
-"""Versioned persistence for ClioraOps workspace metadata."""
+"""Versioned persistence for clioraOps workspace metadata."""
+
+from __future__ import annotations
 
 import json
 import os
