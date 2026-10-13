@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from clioraOps_cli.core.workspace import WorkspaceContext
+from clioraOps_cli.core.workspace_discovery import WorkspaceDiscovery
 from clioraOps_cli.core.workspace_store import WorkspaceStore
 
 
@@ -33,6 +34,19 @@ class WorkspaceManager:
             project_name=project_name,
             project_type=project_type,
         )
+        self._active_workspace = workspace
+
+        if self._store is not None:
+            self._store.save(workspace)
+
+        return workspace
+
+    def discover_workspace(
+        self,
+        working_directory: str | Path,
+    ) -> WorkspaceContext:
+        """Discover and activate a workspace using read-only metadata."""
+        workspace = WorkspaceDiscovery().discover(working_directory)
         self._active_workspace = workspace
 
         if self._store is not None:

@@ -12,6 +12,35 @@ def test_manager_starts_without_active_workspace() -> None:
     assert manager.active_workspace is None
 
 
+
+def test_discover_workspace_activates_and_persists_project(
+    tmp_path: Path,
+) -> None:
+
+    project = tmp_path / "sample-project"
+    source = project / "src"
+    source.mkdir(parents=True)
+    (project / "pyproject.toml").write_text(
+        "[project]\nname = 'sample-project'\n",
+        encoding="utf-8",
+    )
+
+    store = WorkspaceStore(tmp_path / "workspace.json")
+    manager = WorkspaceManager(store=store)
+
+    workspace = manager.discover_workspace(source)
+
+    assert manager.active_workspace == workspace
+    assert workspace.project_root == project.resolve()
+    assert workspace.project_type == "python"
+
+    restored = store.load()
+
+    assert restored is not None
+    assert restored.project_root == project.resolve()
+    assert restored.working_directory == source.resolve()
+
+
 def test_select_workspace_sets_active_context(tmp_path: Path) -> None:
     manager = WorkspaceManager()
 

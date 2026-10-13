@@ -3,8 +3,6 @@
 
 from pathlib import Path
 
-from gradio.mcp import tool
-
 from clioraOps_cli.core.workspace import WorkspaceContext
 
 
