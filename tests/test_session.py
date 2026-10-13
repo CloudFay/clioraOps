@@ -1,5 +1,6 @@
 
 from pathlib import Path
+import subprocess
 from unittest.mock import patch
 
 from clioraOps_cli.core.modes import Mode
@@ -55,3 +56,40 @@ def test_session_handles_invalid_saved_workspace(tmp_path: Path) -> None:
         "Could not restore saved workspace" in str(call)
         for call in mocked_print.call_args_list
     )
+
+import subprocess
+
+
+def test_session_restoration_does_not_scan_or_execute_workspace(
+    tmp_path: Path,
+) -> None:
+    store = WorkspaceStore(tmp_path / "workspace.json")
+    store.save(
+        WorkspaceContext(
+            working_directory=tmp_path,
+            project_name="clioraOps",
+            project_type="python",
+        )
+    )
+
+    manager = WorkspaceManager(store=store)
+    session = SessionManager(Mode.BEGINNER, workspace_manager=manager)
+
+    with (
+        patch("builtins.input", return_value="exit"),
+        patch("builtins.print"),
+        patch(
+            "clioraOps_cli.core.workspace_discovery.WorkspaceDiscovery.discover",
+            side_effect=AssertionError("Restoration must not scan the workspace"),
+        ) as mock_discover,
+        patch(
+            "subprocess.run",
+            side_effect=AssertionError("Restoration must not execute commands"),
+        ) as mock_run,
+    ):
+        session.start_interactive(command_router=None)
+
+    assert manager.active_workspace is not None
+    assert manager.active_workspace.project_name == "clioraOps"
+    mock_discover.assert_not_called()
+    mock_run.assert_not_called()
