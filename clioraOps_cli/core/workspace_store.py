@@ -65,7 +65,9 @@ class WorkspaceStore:
         if not isinstance(payload, dict):
             raise ValueError("Workspace state must be a JSON object")
 
-        if payload.get("schema_version") != self.SCHEMA_VERSION:
+        if (
+            type(payload.get("schema_version")) is not int
+            or payload["schema_version"] != self.SCHEMA_VERSION):
             raise ValueError("Unsupported workspace state schema version")
 
         data = payload.get("workspace")
@@ -89,11 +91,13 @@ class WorkspaceStore:
 
         for key in required_strings:
             if not isinstance(data.get(key), str) or not data[key]:
+
                 raise ValueError(f"Invalid workspace field: {key}")
 
         for key in optional_strings:
             value = data.get(key)
             if value is not None and not isinstance(value, str):
+
                 raise ValueError(f"Invalid workspace field: {key}")
 
         detected_tools = data.get("detected_tools", [])
@@ -108,12 +112,14 @@ class WorkspaceStore:
         if not isinstance(config_files, list) or not all(
             isinstance(item, str) for item in config_files
         ):
+
             raise ValueError("Invalid workspace field: config_files")
 
         if not isinstance(infrastructure_context, dict) or not all(
             isinstance(key, str) and isinstance(value, str)
             for key, value in infrastructure_context.items()
         ):
+
             raise ValueError("Invalid workspace field: infrastructure_context")
 
         return WorkspaceContext(

@@ -91,3 +91,48 @@ def test_clear_is_safe_when_state_does_not_exist(tmp_path: Path) -> None:
     store = WorkspaceStore(tmp_path / "missing.json")
 
     store.clear()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("detected_tools", "docker"),
+        ("detected_tools", [123]),
+        ("config_files", "pyproject.toml"),
+        ("config_files", [123]),
+        ("infrastructure_context", []),
+        ("infrastructure_context", {"cloud": 123}),
+    ],
+)
+def test_load_rejects_invalid_collection_fields(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    path = tmp_path / "workspace.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": WorkspaceStore.SCHEMA_VERSION,
+                "workspace": {
+                    "working_directory": str(tmp_path),
+                    field: value,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match=field):
+        WorkspaceStore(path).load()
+
+
+def test_load_rejects_boolean_schema_version(tmp_path: Path) -> None:
+    path = tmp_path / "workspace.json"
+    path.write_text(
+        json.dumps({"schema_version": True, "workspace": {}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="schema version"):
+        WorkspaceStore(path).load()
