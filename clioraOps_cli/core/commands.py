@@ -2,8 +2,9 @@
 """
 Command routing and execution for ClioraOps.
 """
+from __future__ import annotations
 
-from typing import Dict
+from typing import Callable, Dict
 
 from clioraOps_cli.core.modes import Mode
 from clioraOps_cli.core.policy import PolicyManager
@@ -37,15 +38,16 @@ from clioraOps_cli.features.code_generator import (
 from clioraOps_cli.features.boilerplate import BoilerplateManager
 from clioraOps_cli.features.command_generator import CommandGenerator
 from clioraOps_cli.integrations.ai_provider import AIClient
-
+from clioraOps_cli.core.workspace_manager import WorkspaceManager
 
 class CommandRouter:
     """Routes and reviews user commands."""
 
-    def __init__(self, mode: Mode, context, ai: AIClient):
+    def __init__(self, mode: Mode, context, ai: AIClient, workspace_manager: WorkspaceManager | None = None,):
         self.mode = mode
         self.context = context
         self.ai = ai
+        self.workspace_manager = workspace_manager
         self.ai_available = ai.is_available
         self.policy = PolicyManager()
 
@@ -95,6 +97,19 @@ class CommandRouter:
 
         return True
 
+    def get_workspace_context(self) -> dict[str, object] | None:
+        """Return active workspace metadata without scanning the filesystem."""
+        workspace = (
+            self.workspace_manager.active_workspace
+            if self.workspace_manager is not None
+            else None
+        )
+        if workspace is None:
+            return None
+
+        to_dict = getattr(workspace, "to_dict", None)
+        return to_dict() if callable(to_dict) else None
+
     def update_mode(self, mode: Mode):
         """Update the current mode."""
         self.mode = mode
@@ -128,7 +143,7 @@ class CommandRouter:
         command = parts[0].lower()
         args = parts[1].split() if len(parts) > 1 else []
 
-        handlers = {
+        handlers: dict[str, Callable[..., None]] = {
             "init": self.cmd_init,
             "try": self.cmd_try,
             "review": self.cmd_review,
