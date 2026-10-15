@@ -41,6 +41,17 @@ class DeterministicSafetyEngine:
         "docker images",
     }
 
+    # Deny recursive-force deletion targeting the filesystem root.
+    # Supports reordered short flags, long flags, and an optional sudo prefix.
+    ROOT_RECURSIVE_DELETE = re.compile(
+        r"\b(?:sudo\s+)?rm\s+"
+        r"(?:(?=[^\s]*r)(?=[^\s]*f)-[A-Za-z]+\s+"
+        r"|--recursive\s+--force\s+"
+        r"|--force\s+--recursive\s+)"
+        r"/\*?(?=\s|$|[;&|])",
+        re.IGNORECASE,
+    )
+
     # Downloading a remote script and piping it directly into a shell
     # is explicitly denied rather than merely requiring approval.
     REMOTE_SCRIPT_PIPE = re.compile(
@@ -69,6 +80,15 @@ class DeterministicSafetyEngine:
             )
 
         command = command.strip()
+
+        # Deny known root-level recursive-force deletion variants before
+        # general review or shell-syntax handling.
+        if self.ROOT_RECURSIVE_DELETE.search(command):
+            return SafetyResult(
+                SafetyDecision.DENY,
+                "Root-level recursive-force deletion is denied.",
+                RiskLevel.CRITICAL,
+            )
 
         # Review known risks before checking shell syntax. This ensures
         # critical patterns cannot be hidden inside compound commands.
