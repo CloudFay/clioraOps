@@ -1,6 +1,6 @@
 # ClioraOps Sandboxed Execution Design
 
-**Status:** Proposed — design only
+**Status:** Proposed - design only
 **Scope:** Define the security contract for future isolated command testing. No command executor is implemented by this document.
 
 ## 1. Goals and non-goals
