@@ -1,8 +1,9 @@
 
 """Orchestration for explicit execution approval decisions.
 
-This module does not execute commands or authenticate the decision
-provider. The application must supply a trusted approval interface.
+This module evaluates policy and issues an execution token only after
+the configured approval provider explicitly approves a proposal.
+It does not execute commands or authenticate the decision provider.
 """
 from __future__ import annotations
 
@@ -10,8 +11,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Callable
 
-from clioraOps_cli.core.execution_approval import ApprovalRecord
-from clioraOps_cli.core.execution_contracts import ActionProposal
+from clioraOps_cli.core.authorization import ApprovalAuthority
+from clioraOps_cli.core.execution_contracts import (
+    ActionProposal,
+    ApprovalToken,
+)
 from clioraOps_cli.core.execution_policy import (
     ExecutionDecision,
     ExecutionPolicy,
@@ -41,14 +45,14 @@ class ApprovalWorkflowResult:
 
     status: ApprovalWorkflowStatus
     policy_evaluation: PolicyEvaluation
-    approval_record: ApprovalRecord | None = None
+    approval_token: ApprovalToken | None = None
 
     @property
     def approved(self) -> bool:
-        """Whether an explicit approval was recorded for this proposal."""
+        """Whether an execution token was issued after explicit approval."""
         return (
             self.status is ApprovalWorkflowStatus.APPROVED
-            and self.approval_record is not None
+            and self.approval_token is not None
         )
 
 
@@ -59,18 +63,19 @@ DecisionProvider = Callable[
 
 
 class ExecutionApprovalWorkflow:
-    """Evaluate policy, then request an explicit approval decision.
+    """Evaluate policy and issue a token after explicit approval.
 
-    Both ALLOW and REQUIRES_APPROVAL policy results require an explicit
+    Both ALLOW and REQUIRES_APPROVAL decisions require an explicit
     decision from the configured provider. DENY never reaches the
-    provider. The provider is an integration boundary, not something
-    this class can authenticate or make trustworthy by itself.
+    provider. The provider is an integration boundary and must be
+    connected to a trusted user interaction by the application.
     """
 
     def __init__(
         self,
         policy: ExecutionPolicy,
         decision_provider: DecisionProvider,
+        approval_authority: ApprovalAuthority,
     ) -> None:
         if not isinstance(policy, ExecutionPolicy):
             raise TypeError("policy must be an ExecutionPolicy")
@@ -78,8 +83,14 @@ class ExecutionApprovalWorkflow:
         if not callable(decision_provider):
             raise TypeError("decision_provider must be callable")
 
+        if not isinstance(approval_authority, ApprovalAuthority):
+            raise TypeError(
+                "approval_authority must be an ApprovalAuthority"
+            )
+
         self._policy = policy
         self._decision_provider = decision_provider
+        self._approval_authority = approval_authority
 
     def review(self, proposal: ActionProposal) -> ApprovalWorkflowResult:
         """Evaluate and request approval without executing the proposal."""
@@ -111,8 +122,16 @@ class ExecutionApprovalWorkflow:
                 policy_evaluation=evaluation,
             )
 
+        try:
+            token = self._approval_authority.issue_approval(proposal)
+        except Exception:
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.DECISION_UNAVAILABLE,
+                policy_evaluation=evaluation,
+            )
+
         return ApprovalWorkflowResult(
             status=ApprovalWorkflowStatus.APPROVED,
             policy_evaluation=evaluation,
-            approval_record=ApprovalRecord.for_proposal(proposal),
+            approval_token=token,
         )
