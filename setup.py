@@ -39,6 +39,7 @@ setup(
         "graphviz>=0.20.0",
         "gradio>=4.0.0",
         "python-dotenv>=1.0.0",
+        "docker>=7.1,<8",
     ],
 
     entry_points={
