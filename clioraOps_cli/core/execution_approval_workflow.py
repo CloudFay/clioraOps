@@ -4,6 +4,7 @@
 This module does not execute commands or authenticate the decision
 provider. The application must supply a trusted approval interface.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum

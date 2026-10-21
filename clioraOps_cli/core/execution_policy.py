@@ -4,6 +4,7 @@ This module evaluates policy requirements only. It does not execute
 commands, grant user approval, enforce resource limits, or provide
 a security boundary.
 """
+from __future__ import annotations
 
 import re
 from dataclasses import dataclass

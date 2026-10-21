@@ -6,6 +6,7 @@ provenance verification to a trusted application integration.
 
 It does not execute commands or enforce a security boundary.
 """
+from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
