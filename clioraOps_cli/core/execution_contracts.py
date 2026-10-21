@@ -1,4 +1,3 @@
-
 """Typed contracts for future isolated command execution.
 
 These models describe proposals and results only. They do not execute
@@ -105,6 +104,20 @@ class ActionProposal:
                 "environment keys must not contain duplicates"
             )
 
+@dataclass(frozen=True)
+class ApprovalToken:
+    """Opaque reference to a single-use authorization grant.
+
+    Creating this object does not grant authorization. The executor
+    must validate it through a trusted approval authority.
+    """
+
+    token: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.token, str) or not self.token.strip():
+            raise ValueError("token must be a non-empty string")
+
 
 class ExecutionStatus(Enum):
     """Possible outcomes from a future execution backend."""
@@ -162,12 +175,12 @@ class ExecutionResult:
 
 
 class SandboxExecutor(Protocol):
-    """Interface for a future isolated executor.
+    """Interface for executing explicitly authorized proposals."""
 
-    This protocol defines the expected interface only. It does not
-    execute commands or enforce a security boundary.
-    """
-
-    def execute(self, proposal: ActionProposal) -> ExecutionResult:
-        """Execute an authorized proposal inside an approved isolation boundary."""
+    def execute(
+        self,
+        proposal: ActionProposal,
+        approval: ApprovalToken,
+    ) -> ExecutionResult:
+        """Execute a proposal after validating its authorization."""
         ...

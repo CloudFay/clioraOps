@@ -1,8 +1,8 @@
-
 import pytest
 
 from clioraOps_cli.core.execution_contracts import (
     ActionProposal,
+    ApprovalToken,
     ExecutionResult,
     ExecutionStatus,
 )
@@ -83,6 +83,28 @@ def test_proposal_accepts_valid_environment_keys():
         "APP_MODE",
         "_INTERNAL",
     )
+
+
+def test_approval_token_accepts_non_empty_string():
+    token = ApprovalToken("test-token")
+
+    assert token.token == "test-token"
+
+
+def test_approval_token_is_immutable():
+    token = ApprovalToken("test-token")
+
+    with pytest.raises(AttributeError):
+        token.token = "another-token"
+
+
+@pytest.mark.parametrize(
+    "invalid_token",
+    ["", "   ", None, 123],
+)
+def test_approval_token_rejects_invalid_values(invalid_token):
+    with pytest.raises(ValueError):
+        ApprovalToken(invalid_token)
 
 
 def test_execution_result_records_timeout():
