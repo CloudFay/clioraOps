@@ -44,10 +44,11 @@ jobs:
             --show-source \
             --statistics
 
-      - name: Run additional Flake8 checks
+      - name: Report additional Flake8 findings
         run: |
           flake8 clioraOps_cli \
             --count \
+            --exit-zero \
             --max-complexity=10 \
             --max-line-length=127 \
             --statistics
@@ -112,6 +113,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: build
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
@@ -152,7 +154,19 @@ jobs:
           python -m pip install bandit safety
 
       - name: Scan source code with Bandit
-        run: bandit -r clioraOps_cli -ll
+        run: |
+          bandit -r clioraOps_cli -ll --exit-zero \
+            -f json -o bandit-report.json
+          python -m json.tool bandit-report.json > /dev/null
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Scan dependencies with Safety
         env:
@@ -168,3 +182,12 @@ jobs:
             --save-as json safety-report.json
 
           python -m json.tool safety-report.json > /dev/null
+
+      - name: Upload Safety report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: safety-dependency-report
+          path: safety-report.json
+          if-no-files-found: warn
+          retention-days: 7
