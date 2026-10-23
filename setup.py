@@ -37,7 +37,7 @@ setup(
         "google-generativeai>=0.3.0",
         "diagrams>=0.23.0",
         "graphviz>=0.20.0",
-        "gradio>=4.0.0",
+        "gradio>=6.30.0",
         "python-dotenv>=1.2.2",
         "docker>=7.1,<8",
     ],
