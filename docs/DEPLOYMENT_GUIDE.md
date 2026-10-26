@@ -28,27 +28,21 @@ ClioraOps supports several deployment approaches. The appropriate option depends
 |---|---|---|---|
 | Local Python CLI | Development, testing, and learning | Low | Python and project dependencies |
 | Docker | Reproducible environments and isolation | Moderate | Docker and a validated image configuration |
-| Web interface | Browser-based demonstrations | Moderate | Optional web dependencies |
+| Web interface | Browser-based demonstrations | Currently unavailable | Paused pending secure Pillow compatibility |
 | Standalone binary | Portable distribution | Moderate | A supported and tested build process |
 | Dev Container | Remote development and onboarding | Moderate | VS Code or a compatible development platform |
 
 **Dependency installation options**
 
-Install the core CLI without requesting the optional Gradio dependency:
+Install the core CLI from the repository root:
 
 ```bash
 python -m pip install -e .
 ```
 
-Install the CLI with the web interface dependencies:
+**Web interface status:** The Gradio web interface is temporarily unavailable while we address the compatibility between the supported Gradio version and a secure Pillow release. The optional web dependency extra has been removed from the current package configuration. Do not install Gradio separately as a workaround.
 
-```
-Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
-```
-
-Run these commands from the repository root. The `web` extra is defined in `setup.py`.
-
----
+The core CLI remains available. Check the project's release notes for updates before attempting to enable the web interface.
 
 ## Deployment Methods
 
@@ -221,19 +215,15 @@ The web interface is an optional installation. Gradio is not requested by the st
 
 #### Installation
 
-From the repository root, activate the project's virtual environment and run:
+**Status:** The Gradio web interface is temporarily unavailable while we address compatibility with a secure Pillow release. The optional web dependency extra has been removed from the current package configuration. Do not install Gradio separately as a workaround.
 
-```
-Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
-```
-
-This installs the project together with the dependency declared under the `web` extra in `setup.py`.
-
-If you only need the CLI, use the standard installation instead:
+The core CLI remains available. To install it from the repository root, run:
 
 ```bash
 python -m pip install -e .
 ```
+
+Check the project's release notes for updates before attempting to enable the web interface.
 
 #### Start the web interface
 
@@ -369,11 +359,7 @@ For a core CLI development environment:
 python -m pip install -e .
 ```
 
-If your development work requires the web interface:
-
-```
-Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
-```
+The Gradio web interface is temporarily unavailable while compatibility with a secure Pillow release is addressed. Do not install Gradio separately as a workaround. The core CLI remains available.
 
 Run tests using the project's configured test suite:
 
@@ -547,13 +533,12 @@ python -m pip check
 
 ### Gradio or web-interface import errors
 
-If the web interface reports that Gradio is missing, activate the correct virtual environment and install the optional extra from the repository root:
+The Gradio web interface is temporarily unavailable while compatibility with a secure Pillow release is addressed. The optional web dependency extra has been removed from the current package configuration. Do not install Gradio separately as a workaround.
 
-```
-Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
-```
+The core CLI does not require Gradio. To install the core package from the repository root, run:
 
-Confirm that the environment's Python interpreter is the one used to run the web interface.
+```bash
+python -m pip install -e .
 
 ### AI provider unavailable
 
