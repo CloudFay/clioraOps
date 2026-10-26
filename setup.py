@@ -37,14 +37,18 @@ setup(
         "google-generativeai>=0.3.0",
         "diagrams>=0.23.0",
         "graphviz>=0.20.0",
-        "gradio>=6.30.0",
         "python-dotenv>=1.2.2",
         "docker>=7.1,<8",
     ],
 
+    extras_require={
+        "web": [
+            "gradio>=6.30.0",
+        ],
+    },
+
     entry_points={
         "console_scripts": [
-            # ✅ Updated to your Click entry point
             "clioraops=clioraOps_cli.main:main",
         ],
     },

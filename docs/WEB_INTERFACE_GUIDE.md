@@ -26,7 +26,7 @@ The Gradio-powered web interface allows you to interact with ClioraOps through a
 # Clone and setup
 cd clioraOps
 python3 -m venv venv && source venv/bin/activate
-pip install -e .
+pip install -e ".[web]"
 
 # Run the web interface
 python clioraOps_cli/web_interface.py
@@ -181,7 +181,7 @@ python clioraOps_cli/web_interface.py
 ### Gradio Not Installed
 
 ```bash
-pip install -e .  # Includes gradio>=4.0.0
+python -m pip install -e ".[web]"
 ```
 
 ---

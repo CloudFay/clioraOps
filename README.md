@@ -182,7 +182,7 @@ clioraops start
 
 **Web Interface (Browser):**
 ```bash
-pip install -e .
+pip install -e ".[web]"
 python clioraOps_cli/web_interface.py
 # Open http://localhost:7860
 ```

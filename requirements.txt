@@ -11,6 +11,5 @@ black>=26.10.1
 flake8>=5.0.0
 mypy>=0.990
 google-generativeai>=0.3.0
-gradio>=6.30.0
 python-dotenv>=1.2.2
 docker>=7.1,<8
