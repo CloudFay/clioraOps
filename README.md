@@ -181,11 +181,7 @@ clioraops start
 ```
 
 **Web Interface (Browser):**
-```bash
-pip install -e ".[web]"
-python clioraOps_cli/web_interface.py
-# Open http://localhost:7860
-```
+Web interface temporarily unavailable: The Gradio interface is paused while we resolve an upstream dependency compatibility and security issue. The core CLI remains available. See the Web Interface Guide for context.
 
 **Docker (Production):**
 ```bash

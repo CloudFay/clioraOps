@@ -41,12 +41,6 @@ setup(
         "docker>=7.1,<8",
     ],
 
-    extras_require={
-        "web": [
-            "gradio>=6.30.0",
-        ],
-    },
-
     entry_points={
         "console_scripts": [
             "clioraops=clioraOps_cli.main:main",

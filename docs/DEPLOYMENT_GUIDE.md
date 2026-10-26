@@ -42,8 +42,8 @@ python -m pip install -e .
 
 Install the CLI with the web interface dependencies:
 
-```bash
-python -m pip install -e ".[web]"
+```
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 ```
 
 Run these commands from the repository root. The `web` extra is defined in `setup.py`.
@@ -223,8 +223,8 @@ The web interface is an optional installation. Gradio is not requested by the st
 
 From the repository root, activate the project's virtual environment and run:
 
-```bash
-python -m pip install -e ".[web]"
+```
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 ```
 
 This installs the project together with the dependency declared under the `web` extra in `setup.py`.
@@ -371,8 +371,8 @@ python -m pip install -e .
 
 If your development work requires the web interface:
 
-```bash
-python -m pip install -e ".[web]"
+```
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 ```
 
 Run tests using the project's configured test suite:
@@ -549,8 +549,8 @@ python -m pip check
 
 If the web interface reports that Gradio is missing, activate the correct virtual environment and install the optional extra from the repository root:
 
-```bash
-python -m pip install -e ".[web]"
+```
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 ```
 
 Confirm that the environment's Python interpreter is the one used to run the web interface.
