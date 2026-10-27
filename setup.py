@@ -26,7 +26,7 @@ setup(
         "Topic :: Software Development :: Build Tools",
     ],
 
-    python_requires=">=3.9",
+    python_requires=">=3.10",
 
     install_requires=[
         "click>=8.0.0",
