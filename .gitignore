@@ -46,3 +46,10 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# JavaScript dependencies
+node_modules/
+
+# Python virtual environments
+.venv/
+.venv-*/
