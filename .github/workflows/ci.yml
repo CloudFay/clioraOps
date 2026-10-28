@@ -60,7 +60,7 @@ jobs:
       - name: Check types with Mypy
         continue-on-error: true
         run: mypy clioraOps_cli --ignore-missing-imports
-        
+
       - name: Run tests and generate coverage
         run: |
           pytest tests/ -v --tb=short \
@@ -149,11 +149,22 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install project and security tools
+      - name: Install project runtime dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e .
-          python -m pip install bandit safety
+
+      - name: Capture resolved project dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/safety-target"
+          python -m pip freeze \
+            | grep -vE '^-e ' \
+            > "$RUNNER_TEMP/safety-target/requirements.txt"
+
+          test -s "$RUNNER_TEMP/safety-target/requirements.txt"
+
+      - name: Install Bandit
+        run: python -m pip install bandit
 
       - name: Scan source code with Bandit
         run: |
@@ -170,6 +181,12 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Set up isolated Safety environment
+        run: |
+          python -m venv "$RUNNER_TEMP/safety-venv"
+          "$RUNNER_TEMP/safety-venv/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/safety-venv/bin/python" -m pip install safety
+
       - name: Scan dependencies with Safety
         env:
           SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
@@ -179,7 +196,9 @@ jobs:
             exit 1
           fi
 
-          safety --stage cicd scan \
+          "$RUNNER_TEMP/safety-venv/bin/safety" \
+            --stage cicd scan \
+            --target "$RUNNER_TEMP/safety-target" \
             --output json \
             --save-as json safety-report.json
 
