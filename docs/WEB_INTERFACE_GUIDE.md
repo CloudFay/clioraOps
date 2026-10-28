@@ -3,6 +3,12 @@
 **Version:** 0.3.1  
 **Status:** Experimental
 
+
+```
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. The core CLI remains available. Do not install Gradio separately as a workaround.
+```
+
+
 The web interface provides a browser-based alternative to the CLI, making ClioraOps accessible without terminal access.
 
 ---
@@ -26,7 +32,7 @@ The Gradio-powered web interface allows you to interact with ClioraOps through a
 # Clone and setup
 cd clioraOps
 python3 -m venv venv && source venv/bin/activate
-pip install -e .
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 
 # Run the web interface
 python clioraOps_cli/web_interface.py
@@ -181,7 +187,7 @@ python clioraOps_cli/web_interface.py
 ### Gradio Not Installed
 
 ```bash
-pip install -e .  # Includes gradio>=4.0.0
+Temporarily unavailable: The Gradio web interface is paused while we resolve compatibility with a secure Pillow release. Do not install Gradio separately as a workaround. The core CLI remains available.
 ```
 
 ---
