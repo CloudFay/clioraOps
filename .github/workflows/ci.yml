@@ -158,6 +158,12 @@ jobs:
       - name: Capture resolved project dependencies
         run: |
           mkdir -p "$RUNNER_TEMP/safety-target"
+
+          test -f "$GITHUB_WORKSPACE/.safety-project.ini"
+
+          cp "$GITHUB_WORKSPACE/.safety-project.ini" \
+            "$RUNNER_TEMP/safety-target/.safety-project.ini"
+
           python -m pip freeze \
             | grep -vE '^-e ' \
             > "$RUNNER_TEMP/safety-target/requirements.txt"
