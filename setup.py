@@ -26,24 +26,23 @@ setup(
         "Topic :: Software Development :: Build Tools",
     ],
 
-    python_requires=">=3.9",
+    python_requires=">=3.10",
 
     install_requires=[
         "click>=8.0.0",
         "rich>=10.0.0",
         "pyyaml>=6.0",
-        "prompt-toolkit>=3.0.0",
-        "requests>=2.28.0",
+        "prompt-toolkit>=3.0.13",
+        "requests>=2.33.0",
         "google-generativeai>=0.3.0",
         "diagrams>=0.23.0",
         "graphviz>=0.20.0",
-        "gradio>=4.0.0",
-        "python-dotenv>=1.0.0",
+        "python-dotenv>=1.2.2",
+        "docker>=7.1,<8",
     ],
 
     entry_points={
         "console_scripts": [
-            # ✅ Updated to your Click entry point
             "clioraops=clioraOps_cli.main:main",
         ],
     },
