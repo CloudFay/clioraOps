@@ -1,4 +1,3 @@
-import gradio as gr
 import io
 import contextlib
 from clioraOps_cli.core.app import ClioraOpsApp
@@ -17,7 +16,12 @@ class WebInterface:
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
             # Check if it's a conversation or a command
-            if hasattr(app.session, 'conversation') and app.session.conversation.is_conversational_input(message):
+            if app.command_router.is_execute_request(message):
+                print(
+                    "Explicit command execution is available only in the "
+                    "interactive CLI, where approval is collected directly."
+                )
+            elif hasattr(app.session, 'conversation') and app.session.conversation.is_conversational_input(message):
                 response = app.session.conversation.handle_conversation(message)
                 if response:
                     print(response)
@@ -31,6 +35,7 @@ class WebInterface:
     
     def create_interface(self):
         """Create Gradio interface."""
+        import gradio as gr
         
         with gr.Blocks(title="ClioraOps") as interface:
             gr.Markdown("# 🚀 ClioraOps - DevOps Learning Companion")

@@ -1,0 +1,137 @@
+
+"""Orchestration for explicit execution approval decisions.
+
+This module evaluates policy and issues an execution token only after
+the configured approval provider explicitly approves a proposal.
+It does not execute commands or authenticate the decision provider.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import Callable
+
+from clioraOps_cli.core.authorization import ApprovalAuthority
+from clioraOps_cli.core.execution_contracts import (
+    ActionProposal,
+    ApprovalToken,
+)
+from clioraOps_cli.core.execution_policy import (
+    ExecutionDecision,
+    ExecutionPolicy,
+    PolicyEvaluation,
+)
+
+
+class ApprovalDecision(str, Enum):
+    """Explicit decision returned by the approval interface."""
+
+    APPROVE = "approve"
+    REJECT = "reject"
+
+
+class ApprovalWorkflowStatus(str, Enum):
+    """Outcome of the approval workflow."""
+
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    BLOCKED = "blocked"
+    DECISION_UNAVAILABLE = "decision_unavailable"
+
+
+@dataclass(frozen=True)
+class ApprovalWorkflowResult:
+    """Outcome of policy evaluation and an approval decision."""
+
+    status: ApprovalWorkflowStatus
+    policy_evaluation: PolicyEvaluation
+    approval_token: ApprovalToken | None = None
+
+    @property
+    def approved(self) -> bool:
+        """Whether an execution token was issued after explicit approval."""
+        return (
+            self.status is ApprovalWorkflowStatus.APPROVED
+            and self.approval_token is not None
+        )
+
+
+DecisionProvider = Callable[
+    [ActionProposal, PolicyEvaluation],
+    ApprovalDecision,
+]
+
+
+class ExecutionApprovalWorkflow:
+    """Evaluate policy and issue a token after explicit approval.
+
+    Both ALLOW and REQUIRES_APPROVAL decisions require an explicit
+    decision from the configured provider. DENY never reaches the
+    provider. The provider is an integration boundary and must be
+    connected to a trusted user interaction by the application.
+    """
+
+    def __init__(
+        self,
+        policy: ExecutionPolicy,
+        decision_provider: DecisionProvider,
+        approval_authority: ApprovalAuthority,
+    ) -> None:
+        if not isinstance(policy, ExecutionPolicy):
+            raise TypeError("policy must be an ExecutionPolicy")
+
+        if not callable(decision_provider):
+            raise TypeError("decision_provider must be callable")
+
+        if not isinstance(approval_authority, ApprovalAuthority):
+            raise TypeError(
+                "approval_authority must be an ApprovalAuthority"
+            )
+
+        self._policy = policy
+        self._decision_provider = decision_provider
+        self._approval_authority = approval_authority
+
+    def review(self, proposal: ActionProposal) -> ApprovalWorkflowResult:
+        """Evaluate and request approval without executing the proposal."""
+        evaluation = self._policy.evaluate(proposal)
+
+        if evaluation.decision is ExecutionDecision.DENY:
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.BLOCKED,
+                policy_evaluation=evaluation,
+            )
+
+        try:
+            decision = self._decision_provider(proposal, evaluation)
+        except Exception:
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.DECISION_UNAVAILABLE,
+                policy_evaluation=evaluation,
+            )
+
+        if not isinstance(decision, ApprovalDecision):
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.DECISION_UNAVAILABLE,
+                policy_evaluation=evaluation,
+            )
+
+        if decision is ApprovalDecision.REJECT:
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.REJECTED,
+                policy_evaluation=evaluation,
+            )
+
+        try:
+            token = self._approval_authority.issue_approval(proposal)
+        except Exception:
+            return ApprovalWorkflowResult(
+                status=ApprovalWorkflowStatus.DECISION_UNAVAILABLE,
+                policy_evaluation=evaluation,
+            )
+
+        return ApprovalWorkflowResult(
+            status=ApprovalWorkflowStatus.APPROVED,
+            policy_evaluation=evaluation,
+            approval_token=token,
+        )

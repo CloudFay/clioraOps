@@ -4,15 +4,18 @@ Security policy system for ClioraOps.
 Controls file access, resource usage, and security boundaries.
 """
 
+import math
 import os
-import yaml
-from pathlib import Path
-from typing import List, Dict, Optional
 from enum import Enum
+from pathlib import Path
+from typing import Dict, Optional
+
+import yaml
 
 
 class PolicyLevel(Enum):
     """Security policy levels."""
+
     PERMISSIVE = "permissive"
     MODERATE = "moderate"
     STRICT = "strict"
@@ -29,8 +32,90 @@ class AccessPolicy:
 
     def __init__(self, policy_dict: Optional[Dict] = None):
         """Initialize policy from a dictionary or use defaults."""
-        self.policy = policy_dict or self._default_policy()
-        self.level = PolicyLevel(self.policy.get("level", "moderate"))
+        if policy_dict is None:
+            policy_dict = self._default_policy()
+
+        if not isinstance(policy_dict, dict):
+            raise ValueError("Policy configuration must be a dictionary.")
+
+        self._validate_schema(policy_dict)
+        self.policy = policy_dict
+
+        try:
+            self.level = PolicyLevel(
+                self.policy.get("level", "moderate")
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid security policy level.") from exc
+
+    @staticmethod
+    def _validate_schema(policy: Dict) -> None:
+        """Validate configured policy values without filling omitted fields."""
+        for key in ("allowed_paths", "blocked_paths"):
+            if key not in policy:
+                continue
+            paths = policy[key]
+            if not isinstance(paths, list):
+                raise ValueError(f"{key} must be a list.")
+            if any(
+                not isinstance(path, str) or not path.strip()
+                for path in paths
+            ):
+                raise ValueError(
+                    f"{key} entries must be non-empty strings."
+                )
+
+        for key in ("allowed_file_types", "blocked_file_types"):
+            if key not in policy:
+                continue
+            file_types = policy[key]
+            if not isinstance(file_types, list):
+                raise ValueError(f"{key} must be a list.")
+            if any(
+                not isinstance(file_type, str) or not file_type.strip()
+                for file_type in file_types
+            ):
+                raise ValueError(
+                    f"{key} entries must be non-empty strings."
+                )
+
+        if "max_file_size_mb" in policy:
+            max_file_size_mb = policy["max_file_size_mb"]
+            if (
+                isinstance(max_file_size_mb, bool)
+                or not isinstance(max_file_size_mb, (int, float))
+                or (
+                    isinstance(max_file_size_mb, float)
+                    and not math.isfinite(max_file_size_mb)
+                )
+                or max_file_size_mb < 0
+            ):
+                raise ValueError(
+                    "max_file_size_mb must be a finite, non-negative "
+                    "integer or float."
+                )
+
+        if "max_generated_files" in policy:
+            max_generated_files = policy["max_generated_files"]
+            if (
+                isinstance(max_generated_files, bool)
+                or not isinstance(max_generated_files, int)
+                or max_generated_files < 0
+            ):
+                raise ValueError(
+                    "max_generated_files must be a non-negative integer."
+                )
+
+        permission_fields = (
+            "file_creation_allowed",
+            "file_modification_allowed",
+            "file_deletion_allowed",
+            "symlink_creation_allowed",
+            "external_command_execution_allowed",
+        )
+        for key in permission_fields:
+            if key in policy and not isinstance(policy[key], bool):
+                raise ValueError(f"{key} must be a boolean.")
 
     @staticmethod
     def _default_policy() -> Dict:
@@ -69,16 +154,38 @@ class AccessPolicy:
 
     @staticmethod
     def load_from_file(filepath: Path) -> "AccessPolicy":
-        """Load policy from a YAML file."""
-        try:
-            if filepath.exists():
-                with open(filepath, "r", encoding="utf-8") as file:
-                    policy_dict = yaml.safe_load(file) or {}
-                return AccessPolicy(policy_dict)
-        except (OSError, yaml.YAMLError, ValueError, TypeError):
-            pass
+        """
+        Load and validate policy from a YAML file.
 
-        return AccessPolicy()
+        A missing file uses the default policy. An existing but invalid
+        policy raises ValueError instead of silently falling back to
+        potentially more permissive defaults.
+        """
+        filepath = Path(filepath)
+
+        try:
+            if not filepath.exists():
+                return AccessPolicy()
+
+            with filepath.open("r", encoding="utf-8") as file:
+                policy_dict = yaml.safe_load(file)
+
+        except (OSError, yaml.YAMLError) as exc:
+            raise ValueError(
+                f"Unable to load policy file '{filepath}': {exc}"
+            ) from exc
+
+        if not isinstance(policy_dict, dict):
+            raise ValueError(
+                f"Policy file '{filepath}' must contain a YAML mapping."
+            )
+
+        try:
+            return AccessPolicy(policy_dict)
+        except (TypeError, ValueError, AttributeError) as exc:
+            raise ValueError(
+                f"Invalid policy configuration in '{filepath}': {exc}"
+            ) from exc
 
     def is_path_allowed(self, path: str) -> bool:
         """
@@ -104,7 +211,7 @@ class AccessPolicy:
             allowed_paths = self.policy.get("allowed_paths", [])
 
             if not allowed_paths:
-                return True
+                return False
 
             for allowed in allowed_paths:
                 allowed_path = Path(allowed).expanduser().resolve()
@@ -123,49 +230,80 @@ class AccessPolicy:
 
     def is_file_type_allowed(self, filename: str) -> bool:
         """Check whether a file extension is allowed."""
-        _, ext = os.path.splitext(filename)
-        ext = ext.lower()
+        try:
+            _, ext = os.path.splitext(str(filename))
+            ext = ext.lower()
 
-        blocked = {
-            item.lower()
-            for item in self.policy.get("blocked_file_types", [])
-        }
-        if ext in blocked:
+            blocked = {
+                item.lower()
+                for item in self.policy.get("blocked_file_types", [])
+            }
+
+            if ext in blocked:
+                return False
+
+            allowed = {
+                item.lower()
+                for item in self.policy.get("allowed_file_types", [])
+            }
+
+            if allowed and ext not in allowed:
+                return False
+
+            return True
+
+        except (AttributeError, TypeError):
             return False
-
-        allowed = {
-            item.lower()
-            for item in self.policy.get("allowed_file_types", [])
-        }
-        if allowed and ext not in allowed:
-            return False
-
-        return True
 
     def is_file_size_allowed(self, size_bytes: int) -> bool:
         """Check whether a file size is within configured limits."""
-        if size_bytes < 0:
+        if (
+            isinstance(size_bytes, bool)
+            or not isinstance(size_bytes, int)
+            or size_bytes < 0
+        ):
             return False
 
         max_mb = self.policy.get("max_file_size_mb", 100)
+
+        if (
+            isinstance(max_mb, bool)
+            or not isinstance(max_mb, (int, float))
+            or (
+                isinstance(max_mb, float)
+                and not math.isfinite(max_mb)
+            )
+            or max_mb < 0
+        ):
+            return False
+
         max_bytes = max_mb * 1024 * 1024
         return size_bytes <= max_bytes
 
+    def _get_permission(self, key: str, default: bool) -> bool:
+        """
+        Return a permission only when its configured value is a bool.
+
+        Unexpected configuration values are treated as denied.
+        """
+        value = self.policy.get(key, default)
+        return value is True
+
     def can_create_files(self) -> bool:
         """Check whether file creation is allowed."""
-        return self.policy.get("file_creation_allowed", True)
+        return self._get_permission("file_creation_allowed", True)
 
     def can_modify_files(self) -> bool:
         """Check whether file modification is allowed."""
-        return self.policy.get("file_modification_allowed", True)
+        return self._get_permission("file_modification_allowed", True)
 
     def can_delete_files(self) -> bool:
         """Check whether file deletion is allowed."""
-        return self.policy.get("file_deletion_allowed", False)
+        return self._get_permission("file_deletion_allowed", False)
 
     def can_create_symlinks(self) -> bool:
         """Check whether symbolic-link creation is allowed."""
-        return self.policy.get("symlink_creation_allowed", False)
+        return self._get_permission("symlink_creation_allowed", False)
 
     def is_operation_allowed(
         self,
@@ -174,32 +312,65 @@ class AccessPolicy:
         size: int = None,
     ) -> bool:
         """Check whether an operation is permitted."""
+        if not isinstance(operation, str):
+            return False
+
         operation = operation.strip().lower()
 
-        if operation not in {"create", "modify", "delete", "symlink", "execute"}:
+        valid_operations = {
+            "create",
+            "modify",
+            "delete",
+            "symlink",
+            "execute",
+        }
+
+        if operation not in valid_operations:
+            return False
+
+        path_required_operations = {
+            "create",
+            "modify",
+            "delete",
+            "symlink",
+        }
+
+        if operation in path_required_operations and (
+            not isinstance(path, str) or not path.strip()
+        ):
             return False
 
         if path is not None:
+            if not isinstance(path, str) or not path.strip():
+                return False
+
             if not self.is_path_allowed(path):
                 return False
 
             if operation in {"create", "modify", "delete"}:
-                target = Path(path).expanduser()
+                try:
+                    target = Path(path).expanduser()
 
-                # Existing directories are not files, so do not
-                # apply file-extension restrictions to them.
-                is_directory = target.is_dir()
+                    # Existing directories are not files, so do not
+                    # apply file-extension restrictions to them.
+                    is_directory = target.is_dir()
 
-                # A nonexistent output directory is valid for a
-                # create operation when its parent is allowed.
-                if (
-                    operation == "create"
-                    and not target.exists()
-                    and not target.suffix
-                ):
-                    is_directory = True
+                    # A nonexistent output directory is valid for a
+                    # create operation when its path has no suffix.
+                    if (
+                        operation == "create"
+                        and not target.exists()
+                        and not target.suffix
+                    ):
+                        is_directory = True
 
-                if not is_directory and not self.is_file_type_allowed(path):
+                    if (
+                        not is_directory
+                        and not self.is_file_type_allowed(str(target))
+                    ):
+                        return False
+
+                except (OSError, RuntimeError, ValueError, TypeError):
                     return False
 
         if size is not None and not self.is_file_size_allowed(size):
@@ -218,36 +389,63 @@ class AccessPolicy:
             return self.can_create_symlinks()
 
         if operation == "execute":
-            return self.policy.get(
-                "external_command_execution_allowed", False
+            return self._get_permission(
+                "external_command_execution_allowed",
+                False,
             )
 
         return False
-    
+
     def get_policy_summary(self) -> str:
         """Return a human-readable policy summary."""
         lines = [
             f"Security Level: {self.level.value.upper()}",
-            f"File Creation: {'Allowed' if self.can_create_files() else 'Blocked'}",
-            f"File Modification: {'Allowed' if self.can_modify_files() else 'Blocked'}",
-            f"File Deletion: {'Allowed' if self.can_delete_files() else 'Blocked'}",
-            f"Symlink Creation: {'Allowed' if self.can_create_symlinks() else 'Blocked'}",
-            "External Command Execution: "
-            + (
-                "Allowed"
-                if self.policy.get("external_command_execution_allowed", False)
-                else "Blocked"
+            (
+                "File Creation: "
+                f"{'Allowed' if self.can_create_files() else 'Blocked'}"
             ),
-            f"Max File Size: {self.policy.get('max_file_size_mb', 100)} MB",
+            (
+                "File Modification: "
+                f"{'Allowed' if self.can_modify_files() else 'Blocked'}"
+            ),
+            (
+                "File Deletion: "
+                f"{'Allowed' if self.can_delete_files() else 'Blocked'}"
+            ),
+            (
+                "Symlink Creation: "
+                f"{'Allowed' if self.can_create_symlinks() else 'Blocked'}"
+            ),
+            (
+                "External Command Execution: "
+                + (
+                    "Allowed"
+                    if self._get_permission(
+                        "external_command_execution_allowed",
+                        False,
+                    )
+                    else "Blocked"
+                )
+            ),
+            (
+                f"Max File Size: "
+                f"{self.policy.get('max_file_size_mb', 100)} MB"
+            ),
         ]
 
         allowed_paths = self.policy.get("allowed_paths", [])
         if allowed_paths:
-            lines.append(f"Allowed Paths: {', '.join(allowed_paths[:3])}")
+            lines.append(
+                "Allowed Paths: "
+                + ", ".join(str(path) for path in allowed_paths[:3])
+            )
 
         blocked_paths = self.policy.get("blocked_paths", [])
         if blocked_paths:
-            lines.append(f"Blocked Paths: {', '.join(blocked_paths[:3])}")
+            lines.append(
+                "Blocked Paths: "
+                + ", ".join(str(path) for path in blocked_paths[:3])
+            )
 
         return "\n".join(lines)
 
@@ -258,10 +456,12 @@ def load_policy() -> AccessPolicy:
     or defaults, in that priority order.
     """
     user_policy = Path.home() / ".clioraops" / "policy.yaml"
+
     if user_policy.exists():
         return AccessPolicy.load_from_file(user_policy)
 
     project_policy = Path.cwd() / ".clioraops-policy.yaml"
+
     if project_policy.exists():
         return AccessPolicy.load_from_file(project_policy)
 
@@ -280,7 +480,7 @@ def create_default_policy_file() -> None:
 
     default_policy = AccessPolicy()
 
-    with open(policy_file, "w", encoding="utf-8") as file:
+    with policy_file.open("w", encoding="utf-8") as file:
         yaml.safe_dump(
             default_policy.policy,
             file,
