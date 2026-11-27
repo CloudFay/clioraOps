@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
@@ -60,7 +60,7 @@ jobs:
 
   build:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
     - uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
   publish:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
     - name: Download distributions
@@ -115,7 +115,7 @@ jobs:
       run: twine upload dist/*
 
   security-scan:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     
     steps:
     - uses: actions/checkout@v4
