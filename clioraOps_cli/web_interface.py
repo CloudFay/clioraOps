@@ -1,4 +1,3 @@
-import gradio as gr
 import io
 import contextlib
 from clioraOps_cli.core.app import ClioraOpsApp
@@ -36,6 +35,7 @@ class WebInterface:
     
     def create_interface(self):
         """Create Gradio interface."""
+        import gradio as gr
         
         with gr.Blocks(title="ClioraOps") as interface:
             gr.Markdown("# 🚀 ClioraOps - DevOps Learning Companion")

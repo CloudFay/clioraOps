@@ -1,6 +1,26 @@
+import subprocess
+import sys
 from types import SimpleNamespace
 
 from clioraOps_cli.web_interface import WebInterface
+
+
+def test_import_does_not_require_gradio():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; sys.modules['gradio'] = None; "
+                "from clioraOps_cli.web_interface import WebInterface"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
 
 
 def test_web_interface_blocks_explicit_execution(monkeypatch):
