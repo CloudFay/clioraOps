@@ -156,6 +156,18 @@ class SessionManager:
                 # -----------------------------
                 # CONVERSATIONAL INPUT
                 # -----------------------------
+                is_execute_request = getattr(
+                    command_router,
+                    "is_execute_request",
+                    None,
+                )
+                if (
+                    callable(is_execute_request)
+                    and is_execute_request(user_input) is True
+                ):
+                    command_router.route(user_input)
+                    continue
+
                 if self.conversation and self.conversation.is_conversational_input(user_input):
                     # PROACTIVE INTERCEPTOR: If AI is disabled or only local, prompt for setup
                     if not self.conversation.ai.is_available():

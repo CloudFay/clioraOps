@@ -70,6 +70,17 @@ def review(app, command):
 
 
 # -------------------------
+# EXECUTE COMMAND
+# -------------------------
+@cli.command()
+@click.argument("command", type=click.UNPROCESSED)
+@click.pass_obj
+def execute(app, command):
+    """Request approval and run a command in the restricted Docker sandbox."""
+    app.run("execute", command)
+
+
+# -------------------------
 # GENERATE COMMAND
 # -------------------------
 @cli.command()

@@ -15,6 +15,7 @@ from typing import Any, Optional
 import docker
 from requests.exceptions import ReadTimeout
 
+from clioraOps_cli.config.policies import AccessPolicy
 from clioraOps_cli.core.authorization import (
     ApprovalAuthority,
     AuthorizationError,
@@ -28,12 +29,19 @@ from clioraOps_cli.core.execution_contracts import (
 
 
 class DockerSandboxExecutor:
-    """Execute approved proposals inside restricted Linux containers."""
+    """Execute approved proposals within restricted Docker containers."""
+
+    # Hard resource ceilings enforced independently of ExecutionPolicy.
+    MAX_TIMEOUT_SECONDS = 60.0
+    MAX_OUTPUT_BYTES = 1_048_576  # 1 MiB
+    MAX_MEMORY_LIMIT_MB = 2048
+    MAX_CPU_LIMIT = 2.0
 
     def __init__(
         self,
         *,
         approval_authority: ApprovalAuthority,
+        access_policy: Optional[AccessPolicy] = None,
         client: Optional[Any] = None,
         image: str = "python:3.13-slim",
         pids_limit: int = 64,
@@ -42,8 +50,17 @@ class DockerSandboxExecutor:
             raise TypeError(
                 "approval_authority must be an ApprovalAuthority"
             )
+
+        if access_policy is None:
+            access_policy = AccessPolicy()
+        elif not isinstance(access_policy, AccessPolicy):
+            raise TypeError(
+                "access_policy must be an AccessPolicy"
+            )
+
         if not isinstance(image, str) or not image.strip():
             raise ValueError("image must be a non-empty string")
+
         if (
             isinstance(pids_limit, bool)
             or not isinstance(pids_limit, int)
@@ -52,9 +69,16 @@ class DockerSandboxExecutor:
             raise ValueError("pids_limit must be a positive integer")
 
         self._authority = approval_authority
-        self._client = client if client is not None else docker.from_env()
+        self._access_policy = access_policy
+        self._client = client
         self._image = image
         self._pids_limit = pids_limit
+
+    def _get_client(self) -> Any:
+        """Initialize and cache the Docker client when first needed."""
+        if self._client is None:
+            self._client = docker.from_env()
+        return self._client
 
     @staticmethod
     def _rejected(message: str) -> ExecutionResult:
@@ -77,7 +101,10 @@ class DockerSandboxExecutor:
         try:
             for chunk in iterator:
                 if not isinstance(chunk, (bytes, bytearray)):
-                    chunk = str(chunk).encode("utf-8", errors="replace")
+                    chunk = str(chunk).encode(
+                        "utf-8",
+                        errors="replace",
+                    )
 
                 remaining = limit - len(collected)
 
@@ -132,6 +159,26 @@ class DockerSandboxExecutor:
             stdout_truncated or stderr_truncated,
         )
 
+    def _validate_resource_limits(
+        self,
+        proposal: ActionProposal,
+    ) -> str | None:
+        """Reject proposals that exceed executor-level resource ceilings."""
+
+        if proposal.timeout_seconds > self.MAX_TIMEOUT_SECONDS:
+            return "Requested timeout exceeds executor maximum."
+
+        if proposal.max_output_bytes > self.MAX_OUTPUT_BYTES:
+            return "Requested output limit exceeds executor maximum."
+
+        if proposal.memory_limit_mb > self.MAX_MEMORY_LIMIT_MB:
+            return "Requested memory limit exceeds executor maximum."
+
+        if proposal.cpu_limit > self.MAX_CPU_LIMIT:
+            return "Requested CPU limit exceeds executor maximum."
+
+        return None
+
     def execute(
         self,
         proposal: ActionProposal,
@@ -144,8 +191,12 @@ class DockerSandboxExecutor:
         if not isinstance(proposal, ActionProposal):
             return self._rejected("Invalid action proposal")
 
-        # Approval is consumed before any execution attempt. Invalid or
-        # rejected proposals cannot reuse the same approval token.
+        resource_error = self._validate_resource_limits(proposal)
+        if resource_error is not None:
+            return self._rejected(resource_error)
+
+        # Consume approval before attempting Docker execution.
+        # Invalid or resource-rejected proposals never consume the token.
         try:
             self._authority.consume_approval(proposal, approval)
         except (AuthorizationError, TypeError, ValueError):
@@ -159,12 +210,14 @@ class DockerSandboxExecutor:
             )
 
         nano_cpus = int(proposal.cpu_limit * 1_000_000_000)
+
         if nano_cpus < 1:
             return self._rejected(
                 "CPU limit is too small for Docker's CPU quota"
             )
 
         workspace = Path(proposal.working_directory)
+
         try:
             workspace = workspace.resolve(strict=True)
         except (OSError, RuntimeError, ValueError):
@@ -182,6 +235,16 @@ class DockerSandboxExecutor:
                 "Filesystem roots cannot be mounted as workspaces"
             )
 
+        # Enforce the configured access policy before mounting the
+        # workspace into Docker. AccessPolicy resolves paths and checks
+        # both allowed and blocked directories.
+        if not self._access_policy.is_path_allowed(
+            os.fspath(workspace)
+        ):
+            return self._rejected(
+                "Workspace is outside the allowed access policy"
+            )
+
         container = None
         status = ExecutionStatus.FAILED
         exit_code = None
@@ -191,9 +254,9 @@ class DockerSandboxExecutor:
         cleanup_succeeded = True
 
         try:
-            # Create separately so we retain the container handle if start()
-            # fails and can still attempt removal in finally.
-            container = self._client.containers.create(
+            # Create separately so we retain the container handle if
+            # start() fails and can still attempt removal in finally.
+            container = self._get_client().containers.create(
                 image=self._image,
                 command=["/bin/sh", "-lc", proposal.command],
                 working_dir="/workspace",
@@ -209,7 +272,9 @@ class DockerSandboxExecutor:
                 cap_drop=["ALL"],
                 security_opt=["no-new-privileges:true"],
                 read_only=True,
-                tmpfs={"/tmp": "rw,noexec,nosuid,size=16m"},
+                tmpfs={
+                    "/tmp": "rw,noexec,nosuid,size=16m"
+                },
                 mem_limit=f"{proposal.memory_limit_mb}m",
                 memswap_limit=f"{proposal.memory_limit_mb}m",
                 nano_cpus=nano_cpus,
@@ -272,7 +337,8 @@ class DockerSandboxExecutor:
             stdout=stdout,
             stderr=stderr,
             duration_seconds=max(
-                0.0, time.monotonic() - started_at
+                0.0,
+                time.monotonic() - started_at,
             ),
             output_truncated=output_truncated,
             cleanup_succeeded=cleanup_succeeded,

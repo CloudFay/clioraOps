@@ -2,15 +2,15 @@
 Enhanced boilerplate manager with cookiecutter integration and security policies.
 """
 
-import os
-import subprocess
-from pathlib import Path
-from typing import Optional, List, Dict
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, List, Optional
+
 
 @dataclass
 class BoilerplateTemplate:
     """Represents a boilerplate template."""
+
     id: str
     name: str
     description: str
@@ -21,17 +21,18 @@ class BoilerplateTemplate:
 
 class BoilerplateManager:
     """
-    Manages project scaffolding using cookiecutter with policy support.
-    
+    Manages project scaffolding using Cookiecutter with policy support.
+
     Features:
-    - 25+ DevOps templates organized by category
-    - Cookiecutter integration for template generation
+    - DevOps templates organized by category
+    - Template discovery and validation
     - Security policy enforcement
-    - Template validation
-    - Progress reporting
+
+    Generation remains disabled until Cookiecutter can run in an isolated
+    process. Output-path authorization and post-generation checks cannot
+    contain template code that executes during rendering.
     """
-    
-    # Template library
+
     TEMPLATES = {
         "kubernetes": [
             BoilerplateTemplate(
@@ -228,196 +229,159 @@ class BoilerplateManager:
             ),
         ],
     }
-    
+
     def __init__(self, mode, policy=None):
         """
-        Initialize boilerplate manager.
-        
+        Initialize the boilerplate manager.
+
         Args:
-            mode: Execution mode (beginner/architect)
-            policy: AccessPolicy instance for security checks
+            mode: Execution mode (beginner/architect).
+            policy: Policy object supporting is_operation_allowed()
+                or is_allowed().
         """
         self.mode = mode
         self.policy = policy
-        
+
     def list_all_templates(self) -> Dict[str, List[BoilerplateTemplate]]:
-        """
-        List all available templates organized by category.
-        
-        Returns:
-            Dictionary with categories as keys, template lists as values
-        """
+        """Return all templates organized by category."""
         return self.TEMPLATES
-    
-    def list_templates_by_category(self, category: str) -> List[BoilerplateTemplate]:
-        """
-        List templates in a specific category.
-        
-        Args:
-            category: Category name (kubernetes, docker, cicd, etc.)
-            
-        Returns:
-            List of templates in the category
-        """
+
+    def list_templates_by_category(
+        self, category: str
+    ) -> List[BoilerplateTemplate]:
+        """Return templates belonging to a specific category."""
         return self.TEMPLATES.get(category, [])
-    
+
     def list_templates(self) -> List[Dict[str, str]]:
         """List all templates as dictionaries for backward compatibility."""
         result = []
+
         for templates in self.TEMPLATES.values():
             for template in templates:
                 result.append({
                     "id": template.id,
                     "name": template.name,
-                    "url": template.url
+                    "url": template.url,
                 })
+
         return result
-    
-    def get_template(self, template_id: str) -> Optional[BoilerplateTemplate]:
-        """
-        Get a specific template by ID.
-        
-        Args:
-            template_id: Template ID to find
-            
-        Returns:
-            BoilerplateTemplate or None if not found
-        """
+
+    def get_template(
+        self, template_id: str
+    ) -> Optional[BoilerplateTemplate]:
+        """Find a template by its ID."""
         for templates in self.TEMPLATES.values():
             for template in templates:
                 if template.id == template_id:
                     return template
+
         return None
-    
+
     def validate_template(self, template: BoilerplateTemplate) -> bool:
         """
-        Validate template is accessible and valid.
-        
-        Args:
-            template: Template to validate
-            
-        Returns:
-            True if template is valid, False otherwise
+        Validate that a template has a usable source.
+
+        Local templates must exist on disk. Remote templates must
+        have a non-empty URL.
         """
         if not template.url:
             return False
-        
-        # For local templates, check if path exists
+
         if template.local:
             return Path(template.url).exists()
-        
+
         return True
-    
-    def generate(self, template_id_or_url: str, output_dir: str = ".", **kwargs) -> bool:
+
+    def _can_generate(self, output_dir: str) -> bool:
         """
-        Generate boilerplate from template using cookiecutter.
-        
-        Supports both template IDs and direct URLs for backward compatibility.
-        
-        Args:
-            template_id_or_url: Template ID or direct URL
-            output_dir: Directory to generate in
-            **kwargs: Additional arguments for cookiecutter
-            
-        Returns:
-            True if successful, False otherwise
+        Check whether the configured policy permits generation.
+
+        AccessPolicy provides operation-level checks, while the
+        legacy PolicyManager provides path-level checks.
         """
-        # Check policy
-        if self.policy and not self.policy.is_operation_allowed("create", output_dir):
-            print(f"🚫 Access Denied: Cannot generate in '{output_dir}'")
-            return False
-        
-        # Try to get template by ID first
-        template = self.get_template(template_id_or_url)
-        
-        # If not found by ID, treat as direct URL (backward compatibility)
-        if not template:
-            if template_id_or_url.startswith(("http://", "https://", "file://")):
-                # Direct URL provided
-                print(f"🚀 Generating boilerplate from {template_id_or_url}...")
-                try:
-                    from cookiecutter.main import cookiecutter as run_cookiecutter
-                    result = run_cookiecutter(
-                        template_id_or_url,
-                        no_input=kwargs.get("no_input", False),
-                        output_dir=output_dir,
-                        extra_context=kwargs.get("extra_context", {})
-                    )
-                    print(f"✅ Successfully generated at: {result}")
-                    return True
-                except ImportError:
-                    print("❌ 'cookiecutter' is not installed")
-                    print("💡 Install it with: pip install cookiecutter")
-                    return False
-                except Exception as e:
-                    print(f"❌ Generation failed: {e}")
-                    return False
-            else:
-                print(f"❌ Template not found: {template_id_or_url}")
-                return False
-        
-        # Validate template
-        if not self.validate_template(template):
-            print(f"❌ Template is invalid or inaccessible: {template.id}")
-            return False
-        
-        print(f"🚀 Generating {template.name}...")
-        print(f"   From: {template.url}")
-        print(f"   To: {output_dir}")
-        
-        try:
-            # Check if cookiecutter is installed
-            try:
-                from cookiecutter.main import cookiecutter as run_cookiecutter
-            except ImportError:
-                print("❌ 'cookiecutter' is not installed")
-                print("💡 Install it with: pip install cookiecutter")
-                return False
-            
-            # Run cookiecutter
-            result = run_cookiecutter(
-                template.url,
-                no_input=kwargs.get("no_input", False),
-                output_dir=output_dir,
-                extra_context=kwargs.get("extra_context", {})
-            )
-            
-            print(f"✅ Successfully generated at: {result}")
+        if self.policy is None:
             return True
-            
-        except Exception as e:
-            print(f"❌ Generation failed: {e}")
-            return False
-    
-    def get_template_info(self, template_id: str) -> Optional[str]:
+
+        operation_check = getattr(
+            self.policy, "is_operation_allowed", None
+        )
+
+        if callable(operation_check):
+            try:
+                return operation_check("create", output_dir) is True
+            except Exception:
+                return False
+
+        path_check = getattr(self.policy, "is_allowed", None)
+
+        if callable(path_check):
+            try:
+                return path_check(output_dir) is True
+            except Exception:
+                return False
+
+        # Unknown policy interfaces must fail closed.
+        return False
+
+    def generate(
+        self,
+        template_id_or_url: str,
+        output_dir: str = ".",
+        **kwargs,
+    ) -> bool:
         """
-        Get detailed information about a template.
-        
+        Generate boilerplate from a template using Cookiecutter.
+
+        Supports template IDs and direct URLs.
+
         Args:
-            template_id: Template ID
-            
+            template_id_or_url: Template ID or direct template URL.
+            output_dir: Directory where the project will be generated.
+            **kwargs: Additional Cookiecutter arguments.
+
         Returns:
-            Formatted information string
+            False until template processing is isolated from the host.
         """
+        # Enforce policy before template lookup or generation.
+        if not self._can_generate(output_dir):
+            print(
+                f"🚫 Access Denied: Cannot generate in '{output_dir}'"
+            )
+            return False
+
+        print(
+            "❌ Template generation is disabled until Cookiecutter "
+            "can run in an isolated process."
+        )
+        return False
+
+    def get_template_info(
+        self, template_id: str
+    ) -> Optional[str]:
+        """Return formatted information about a template."""
         template = self.get_template(template_id)
-        if not template:
+
+        if template is None:
             return None
-        
+
         lines = [
             f"📦 {template.name}",
             f"   Category: {template.category}",
             f"   Description: {template.description}",
             f"   Source: {template.url}",
         ]
-        
+
         return "\n".join(lines)
-    
+
     def print_all_templates(self) -> None:
         """Print all templates organized by category."""
         for category, templates in self.TEMPLATES.items():
-            print(f"\n📁 {category.upper()} ({len(templates)} templates)")
+            print(
+                f"\n📁 {category.upper()} "
+                f"({len(templates)} templates)"
+            )
             print("-" * 60)
-            
+
             for template in templates:
                 print(f"  • {template.id}: {template.name}")
                 print(f"    {template.description}")

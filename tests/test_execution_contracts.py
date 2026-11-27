@@ -49,6 +49,8 @@ def test_proposal_is_immutable():
         {"memory_limit_mb": 0},
         {"memory_limit_mb": True},
         {"cpu_limit": 0},
+        {"cpu_limit": float("inf")},
+        {"cpu_limit": float("-inf")},
         {"cpu_limit": float("nan")},
         {"cpu_limit": True},
         {"network_access": 1},

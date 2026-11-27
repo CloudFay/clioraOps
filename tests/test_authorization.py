@@ -68,6 +68,33 @@ def test_expired_approval_is_rejected():
         authority.consume_approval(proposal, approval)
 
 
+def test_issuing_approval_removes_expired_grants_only():
+    now = [100.0]
+    authority = ApprovalAuthority(
+        ttl_seconds=5,
+        clock=lambda: now[0],
+    )
+    proposal = make_proposal()
+    first_approval = authority.issue_approval(proposal)
+    now[0] = 102.0
+    second_approval = authority.issue_approval(proposal)
+
+    assert first_approval.token in authority._grants
+    assert second_approval.token in authority._grants
+
+    now[0] = 105.0
+    third_approval = authority.issue_approval(proposal)
+
+    assert first_approval.token not in authority._grants
+    assert second_approval.token in authority._grants
+    assert third_approval.token in authority._grants
+
+    with pytest.raises(AuthorizationError):
+        authority.consume_approval(proposal, first_approval)
+
+    assert authority.consume_approval(proposal, second_approval) is None
+
+
 @pytest.mark.parametrize(
     "changes",
     [

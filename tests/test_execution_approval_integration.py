@@ -1,4 +1,3 @@
-
 from unittest.mock import Mock
 
 import pytest
@@ -42,7 +41,7 @@ def make_enabled_policy(workspace):
 
 
 @pytest.fixture
-def docker_setup():
+def docker_setup(tmp_path):
     authority = ApprovalAuthority()
 
     client = Mock()
@@ -54,14 +53,22 @@ def docker_setup():
         iter([b""]),
     ]
 
+    access_policy = AccessPolicy(
+        {
+            "level": "moderate",
+            "allowed_paths": [str(tmp_path)],
+            "blocked_paths": [],
+        }
+    )
+
     executor = DockerSandboxExecutor(
         approval_authority=authority,
+        access_policy=access_policy,
         client=client,
         image="python:3.13-slim",
     )
 
     return authority, client, container, executor
-
 
 def test_approved_proposal_executes_through_docker_once(
     tmp_path, docker_setup
@@ -87,7 +94,9 @@ def test_approved_proposal_executes_through_docker_once(
 
     # The workflow and executor share the same authority.
     result = executor.execute(proposal, approval.approval_token)
-
+    assert result.status is ExecutionStatus.SUCCEEDED
+    assert result.exit_code == 0
+    assert result.stdout == "sandbox works"
     client.containers.create.assert_called_once()
     container.start.assert_called_once()
     container.wait.assert_called_once()

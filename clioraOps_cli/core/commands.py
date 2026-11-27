@@ -4,8 +4,17 @@ Command routing and execution for ClioraOps.
 """
 from __future__ import annotations
 
+import re
+from pathlib import Path
 from typing import Callable, Dict
 
+from clioraOps_cli.core.execution_approval_workflow import (
+    ApprovalWorkflowStatus,
+)
+from clioraOps_cli.core.execution_contracts import (
+    ActionProposal,
+    ExecutionStatus,
+)
 from clioraOps_cli.core.modes import Mode
 from clioraOps_cli.core.policy import PolicyManager
 from clioraOps_cli.core.safety_engine import (
@@ -43,11 +52,32 @@ from clioraOps_cli.core.workspace_manager import WorkspaceManager
 class CommandRouter:
     """Routes and reviews user commands."""
 
-    def __init__(self, mode: Mode, context, ai: AIClient, workspace_manager: WorkspaceManager | None = None,):
+    @staticmethod
+    def is_execute_request(user_input: str) -> bool:
+        """Identify explicit execute requests before language classification."""
+        return bool(
+            re.match(
+                r"(?i)^execute(?=\s|$)",
+                user_input.lstrip(),
+            )
+        )
+
+    def __init__(
+        self,
+        mode: Mode,
+        context,
+        ai: AIClient,
+        workspace_manager: WorkspaceManager | None = None,
+        *,
+        execution_workflow=None,
+        sandbox_executor=None,
+    ):
         self.mode = mode
         self.context = context
         self.ai = ai
         self.workspace_manager = workspace_manager
+        self.execution_workflow = execution_workflow
+        self.sandbox_executor = sandbox_executor
         self.ai_available = ai.is_available
         self.policy = PolicyManager()
 
@@ -124,6 +154,12 @@ class CommandRouter:
 
     def route(self, user_input: str):
         """Route a user command."""
+        original_input = user_input.lstrip()
+
+        if self.is_execute_request(original_input):
+            command = original_input[len("execute"):].lstrip()
+            return self.cmd_execute(command)
+
         user_input = user_input.strip()
 
         if not user_input:
@@ -260,6 +296,9 @@ class CommandRouter:
         print("  init              Initialize current directory and scan for secrets")
         print("  try <command>     Review a command through the safety gate")
         print("  review <cmd>      Review a shell command or script file")
+        print(
+            '  execute "<command>" Request approval, then run in Docker sandbox'
+        )
         print("  design <topic>    Design an architecture visualization")
         print("  learn <topic>     Learn a DevOps concept")
         print("  explain <topic>   Explain a command or concept")
@@ -274,8 +313,133 @@ class CommandRouter:
         print("  status            Check AI connectivity and system health")
         print("\n💡 Natural-language commands:")
         print("  Describe what you want, e.g. 'show running containers'")
-        print("  Commands are reviewed; shell execution is disabled.")
+        print("  Generated commands are review-only and never execute automatically.")
+        print(
+            "  try/review only inspect; execute requires explicit approval."
+        )
+        print("  Sandbox workspace is read-only; command changes are not persisted.")
         print("\nType 'exit' to end the session.")
+
+    def _execution_working_directory(self) -> str:
+        """Resolve the active workspace, or the current directory fallback."""
+        workspace = (
+            self.workspace_manager.active_workspace
+            if self.workspace_manager is not None
+            else None
+        )
+        candidate = (
+            workspace.working_directory
+            if workspace is not None
+            else Path.cwd()
+        )
+        directory = Path(candidate).expanduser().resolve(strict=True)
+
+        if not directory.is_dir():
+            raise ValueError("The execution workspace is not a directory.")
+
+        if directory == Path(directory.anchor):
+            raise ValueError(
+                "The filesystem root cannot be used as an execution workspace."
+            )
+
+        return str(directory)
+
+    @staticmethod
+    def _display_execution_proposal(
+        proposal: ActionProposal,
+        decision: str,
+        reason: str,
+    ) -> None:
+        print("\nExecution proposal")
+        print(f"Command: {proposal.command}")
+        print(f"Working directory: {proposal.working_directory}")
+        print(f"Timeout: {proposal.timeout_seconds} seconds")
+        print(f"Maximum output: {proposal.max_output_bytes} bytes")
+        print(f"Memory limit: {proposal.memory_limit_mb} MB")
+        print(f"CPU limit: {proposal.cpu_limit}")
+        print(f"Network access: {proposal.network_access}")
+        print(f"Policy decision: {decision}")
+        print(f"Policy reason: {reason}")
+
+    def cmd_execute(self, command: str) -> None:
+        """Request approval and execute only an approved proposal."""
+        if not command.strip():
+            print('Usage: execute "<command>"')
+            return
+
+        if self.execution_workflow is None or self.sandbox_executor is None:
+            print(
+                "Execution is unavailable: required components are not configured."
+            )
+            return
+
+        try:
+            working_directory = self._execution_working_directory()
+            proposal = ActionProposal(
+                command=command,
+                working_directory=working_directory,
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as exc:
+            print(f"Execution was not started: {exc}")
+            return
+
+        workflow_result = self.execution_workflow.review(proposal)
+        policy_evaluation = workflow_result.policy_evaluation
+
+        if workflow_result.status is ApprovalWorkflowStatus.BLOCKED:
+            self._display_execution_proposal(
+                proposal,
+                policy_evaluation.decision.value,
+                policy_evaluation.reason,
+            )
+            print("Execution blocked by policy; approval was not requested.")
+            return
+
+        if workflow_result.status is ApprovalWorkflowStatus.REJECTED:
+            print("Approval rejected; no command was executed.")
+            return
+
+        if (
+            workflow_result.status
+            is ApprovalWorkflowStatus.DECISION_UNAVAILABLE
+        ):
+            print(
+                "Approval decision unavailable; no command was executed."
+            )
+            return
+
+        if not workflow_result.approved:
+            print("No valid approval was granted; no command was executed.")
+            return
+
+        approval_token = workflow_result.approval_token
+        if approval_token is None:
+            print("No valid approval was granted; no command was executed.")
+            return
+
+        print("Approval granted. Starting the Docker sandbox.")
+        result = self.sandbox_executor.execute(proposal, approval_token)
+        print(f"Execution status: {result.status.value}")
+
+        if result.status is ExecutionStatus.SUCCEEDED:
+            print("Execution completed successfully.")
+        elif result.status is ExecutionStatus.TIMED_OUT:
+            print("Execution timed out.")
+        elif result.status is ExecutionStatus.CLEANUP_FAILED:
+            print("Execution finished, but container cleanup failed.")
+        elif result.status is ExecutionStatus.FAILED:
+            print("Execution failed.")
+        elif result.status is ExecutionStatus.REJECTED:
+            print(
+                "Execution was rejected; the approval may be invalid or expired."
+            )
+
+        print(f"Exit code: {result.exit_code}")
+        print(f"stdout:\n{result.stdout}")
+        print(f"stderr:\n{result.stderr}")
+        print(f"Duration: {result.duration_seconds:.3f} seconds")
+        print(f"Output truncated: {result.output_truncated}")
+        print(f"Container cleanup succeeded: {result.cleanup_succeeded}")
 
     def cmd_threat(self, *args):
         """Perform threat modeling using STRIDE."""
@@ -786,7 +950,10 @@ Format as a structured technical assessment for a lead DevOps architect.
             print("🦙 Ollama (Local): ❌ Not Running")
 
         print(f"🎭 Current Mode : {self.mode.value.upper()}")
-        print(f"🛡️  Paths Allowed: {', '.join(self.policy.allowed_paths)}")
+        print(
+            f"🛡️  Paths Allowed: "
+            f"{', '.join(str(path) for path in self.policy.allowed_paths)}"
+        )
 
         print(
             "\n💡 Tip: If Gemini has quota issues, install Ollama "

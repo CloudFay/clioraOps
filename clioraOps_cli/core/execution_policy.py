@@ -1,8 +1,11 @@
-"""Policy evaluation for proposed isolated command execution.
+"""Evaluate execution proposals against configured policy rules.
 
 This module evaluates policy requirements only. It does not execute
-commands, grant user approval, enforce resource limits, or provide
-a security boundary.
+commands, grant user approval, or provide a security boundary.
+
+Resource ceilings are policy limits, not enforcement mechanisms.
+The isolated executor independently enforces hard resource ceilings.
+Policy limits may be stricter than executor limits.
 """
 from __future__ import annotations
 
@@ -41,7 +44,7 @@ class ExecutionPolicy:
     """Evaluate execution proposals against configured policy rules.
 
     Resource ceilings are policy limits, not enforcement mechanisms.
-    A future isolated executor must independently enforce them.
+    The isolated executor independently enforces them.
     """
 
     DEFAULT_MAX_TIMEOUT_SECONDS = 60.0

@@ -1,8 +1,6 @@
 """Trusted approval lifecycle for sandbox execution proposals.
 
-This module manages in-process approval grants. It does not determine
-whether a command is safe, authenticate users, or provide persistence
-across application restarts.
+This module manages in-process approval grants. It does not determine whether a command is safe, authenticate users, or provide persistence across application restarts.
 """
 
 from __future__ import annotations
@@ -38,12 +36,9 @@ class ApprovalAuthority:
     """Issue and atomically consume single-use approval grants.
 
     IMPORTANT:
-    Only call issue_approval after a trusted application flow has
-    explicitly approved the exact proposal.
+    Only call issue_approval after a trusted application flow has explicitly approved the exact proposal.
 
-    The authority is in-memory and process-local. It is not a substitute
-    for user authentication, durable audit records, or command safety
-    analysis.
+    The authority is in-memory and process-local. It is not a substitute for user authentication, durable audit records, or command safety analysis.
     """
 
     def __init__(
@@ -103,18 +98,28 @@ class ApprovalAuthority:
         if not isinstance(proposal, ActionProposal):
             raise TypeError("proposal must be an ActionProposal")
 
-        now = self._clock()
-        if not isfinite(now):
-            raise AuthorizationError("Approval clock returned an invalid time")
-
         token_value = secrets.token_urlsafe(32)
-        grant = _ApprovalGrant(
-            proposal_fingerprint=self._fingerprint(proposal),
-            expires_at=now + self._ttl_seconds,
-        )
+        proposal_fingerprint = self._fingerprint(proposal)
 
         with self._lock:
-            self._grants[token_value] = grant
+            now = self._clock()
+            if not isfinite(now):
+                raise AuthorizationError(
+                    "Approval clock returned an invalid time"
+                )
+
+            expired_tokens = [
+                token
+                for token, grant in self._grants.items()
+                if now >= grant.expires_at
+            ]
+            for token in expired_tokens:
+                del self._grants[token]
+
+            self._grants[token_value] = _ApprovalGrant(
+                proposal_fingerprint=proposal_fingerprint,
+                expires_at=now + self._ttl_seconds,
+            )
 
         return ApprovalToken(token_value)
 
